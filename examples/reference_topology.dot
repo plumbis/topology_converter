@@ -14,7 +14,7 @@ graph vx {
  "edge01" [function="host" os="yk0/ubuntu-xenial" memory="512" config="./helper_scripts/extra_server_config.sh" mgmt_ip="192.168.0.51"]
  "internet" [function="internet" vagrant="swp48" os="CumulusCommunity/cumulus-vx" version="3.3.0" memory="512" config="./helper_scripts/extra_switch_config.sh" mgmt_ip="192.168.0.253"]
  "oob-mgmt-switch" [function="oob-switch" vagrant="eth0" os="CumulusCommunity/cumulus-vx" version="3.3.0" memory="512" config="./helper_scripts/oob_switch_config.sh" mgmt_ip="192.168.0.1"]
- "oob-mgmt-server" [function="oob-server" vagrant="eth0" os="yk0/ubuntu-xenial" memory="1024" config="./helper_scripts/auto_mgmt_net/OOB_Server_Config.sh" mgmt_ip="192.168.0.254"]
+ "oob-mgmt-server" [function="oob-server" vagrant="eth0" os="yk0/ubuntu-xenial" memory="1024" config="./helper_scripts/OOB_Server_Config.sh" mgmt_ip="192.168.0.254"]
 
  "leaf01":"swp51" -- "spine01":"swp1"
  "leaf02":"swp51" -- "spine01":"swp2"

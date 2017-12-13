@@ -108,7 +108,6 @@ def parse_arguments():
     #     for templatefile, destination in args.template:
     #         TEMPLATES.append([templatefile, destination])
 
-
     # for templatefile, destination in TEMPLATES:
     #     if not os.path.isfile(templatefile):
     #         print(styles.FAIL + styles.BOLD + " ### ERROR: provided template file-- \"" +
@@ -120,133 +119,6 @@ def parse_arguments():
     #     print(args)
 
     return parser.parse_args()
-
-
-
-# Parse Arguments
-network_functions = ['oob-switch', 'internet', 'exit', 'superspine', 'spine', 'leaf', 'tor']
-function_group = {}
-provider = "virtualbox"
-generate_ansible_hostfile = False
-create_mgmt_device = False
-create_mgmt_network = False
-create_mgmt_configs_only = False
-verbose = False
-start_port = 8000
-port_gap = 1000
-synced_folder = False
-display_datastructures = False
-VAGRANTFILE = 'Vagrantfile'
-VAGRANTFILE_template = 'templates/Vagrantfile.j2'
-customer = os.path.basename(os.path.dirname(os.getcwd()))
-TEMPLATES = [[VAGRANTFILE_template, VAGRANTFILE]]
-
-###################################
-#### MAC Address Configuration ####
-###################################
-
-# The starting MAC for assignment for any devices not in mac_map
-# Cumulus Range ( https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux )
-start_mac = "443839000000"
-
-# This file is generated to store the mapping between macs and mgmt interfaces
-dhcp_mac_file = "./dhcp_mac_map"
-
-######################################################
-#############    Everything Else     #################
-######################################################
-
-# Hardcoded Variables
-script_storage = "./helper_scripts"
-epoch_time = str(int(time.time()))
-mac_map = {}
-
-
-# Static Variables -- #Do not change!
-warning = []
-libvirt_reuse_error = """
-       When constructing a VAGRANTFILE for the libvirt provider
-       interface reuse is not possible because the UDP tunnels
-       which libvirt uses for communication are point-to-point in
-       nature. It is not possible to create a point-to-multipoint
-       UDP tunnel!
-
-       NOTE: Perhaps adding another switch to your topology would
-       allow you to avoid reusing interfaces here.
-"""
-
-###### Functions
-def mac_fetch(hostname, interface):
-    global start_mac
-    global mac_map
-    global warning
-    global verbose
-    new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
-    while new_mac in mac_map:
-        warning.append(styles.WARNING + styles.BOLD +
-                       "    WARNING: MF MAC Address Collision -- tried to use " +
-                       new_mac + " (on " + interface + ") but it was already in use." +
-                       styles.ENDC)
-        start_mac = new_mac
-        new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
-    start_mac = new_mac
-
-    if verbose:
-        print("    Fetched new MAC ADDRESS: \"%s\"" % new_mac)
-
-    return add_mac_colon(new_mac)
-
-
-def add_mac_colon(mac_address):
-    global verbose
-    if verbose:
-        print("MAC ADDRESS IS: \"%s\"" % mac_address)
-    return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
-
-
-def lint_topo_file(topology_file):
-    with open(topology_file, "r") as topo_file:
-        line_list = topo_file.readlines()
-        count = 0
-
-        for line in line_list:
-            count += 1
-            # Try to encode into ascii
-            try:
-                line.encode('ascii', 'ignore')
-
-            except UnicodeDecodeError as e:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
-                      Has hidden unicode characters in it which prevent it \
-                      from being converted to ASCII cleanly. Try manually \
-                      typing it instead of copying and pasting."
-                      % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
-                exit(1)
-
-            if line.count("\"") % 2 == 1:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s: Has an odd \
-                      number of quotation characters \
-                      (\").\n     %s\n" % (count, line) + styles.ENDC)
-                exit(1)
-
-            if line.count("'") % 2 == 1:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s: Has an odd \
-                      number of quotation characters \
-                      (').\n     %s\n" % (count, line) + styles.ENDC)
-                exit(1)
-
-            if line.count(":") == 2:
-                if " -- " not in line:
-                    print(styles.FAIL + styles.BOLD +
-                          " ### ERROR: Line %s: Does not \
-                          contain the following sequence \" -- \" \
-                          to seperate the different ends of the link.\n     %s\n"
-                          % (count, line) + styles.ENDC)
-
-                    exit(1)
 
 
 def parse_topology(topology_file):
@@ -929,6 +801,132 @@ def parse_topology(topology_file):
     return inventory
 
 
+# Parse Arguments
+# network_functions = ['oob-switch', 'internet', 'exit', 'superspine', 'spine', 'leaf', 'tor']
+# function_group = {}
+# provider = "virtualbox"
+# generate_ansible_hostfile = False
+# create_mgmt_device = False
+# create_mgmt_network = False
+# create_mgmt_configs_only = False
+# verbose = False
+# start_port = 8000
+# port_gap = 1000
+# synced_folder = False
+# display_datastructures = False
+# VAGRANTFILE = 'Vagrantfile'
+# VAGRANTFILE_template = 'templates/Vagrantfile.j2'
+# customer = os.path.basename(os.path.dirname(os.getcwd()))
+# TEMPLATES = [[VAGRANTFILE_template, VAGRANTFILE]]
+
+###################################
+#### MAC Address Configuration ####
+###################################
+
+# # The starting MAC for assignment for any devices not in mac_map
+# # Cumulus Range ( https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux )
+# start_mac = "443839000000"
+
+# # This file is generated to store the mapping between macs and mgmt interfaces
+# dhcp_mac_file = "./dhcp_mac_map"
+
+# ######################################################
+# #############    Everything Else     #################
+# ######################################################
+
+# # Hardcoded Variables
+# script_storage = "./helper_scripts"
+# epoch_time = str(int(time.time()))
+# mac_map = {}
+
+
+# # Static Variables -- #Do not change!
+# warning = []
+# libvirt_reuse_error = """
+#        When constructing a VAGRANTFILE for the libvirt provider
+#        interface reuse is not possible because the UDP tunnels
+#        which libvirt uses for communication are point-to-point in
+#        nature. It is not possible to create a point-to-multipoint
+#        UDP tunnel!
+
+#        NOTE: Perhaps adding another switch to your topology would
+#        allow you to avoid reusing interfaces here.
+# """
+
+###### Functions
+def mac_fetch(hostname, interface):
+    global start_mac
+    global mac_map
+    global warning
+    global verbose
+    new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
+    while new_mac in mac_map:
+        warning.append(styles.WARNING + styles.BOLD +
+                       "    WARNING: MF MAC Address Collision -- tried to use " +
+                       new_mac + " (on " + interface + ") but it was already in use." +
+                       styles.ENDC)
+        start_mac = new_mac
+        new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
+    start_mac = new_mac
+
+    if verbose:
+        print("    Fetched new MAC ADDRESS: \"%s\"" % new_mac)
+
+    return add_mac_colon(new_mac)
+
+
+def add_mac_colon(mac_address):
+    global verbose
+    if verbose:
+        print("MAC ADDRESS IS: \"%s\"" % mac_address)
+    return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
+
+
+def lint_topo_file(topology_file):
+    with open(topology_file, "r") as topo_file:
+        line_list = topo_file.readlines()
+        count = 0
+
+        for line in line_list:
+            count += 1
+            # Try to encode into ascii
+            try:
+                line.encode('ascii', 'ignore')
+
+            except UnicodeDecodeError as e:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
+                      Has hidden unicode characters in it which prevent it \
+                      from being converted to ASCII cleanly. Try manually \
+                      typing it instead of copying and pasting."
+                      % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
+                exit(1)
+
+            if line.count("\"") % 2 == 1:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: Line %s: Has an odd \
+                      number of quotation characters \
+                      (\").\n     %s\n" % (count, line) + styles.ENDC)
+                exit(1)
+
+            if line.count("'") % 2 == 1:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: Line %s: Has an odd \
+                      number of quotation characters \
+                      (').\n     %s\n" % (count, line) + styles.ENDC)
+                exit(1)
+
+            if line.count(":") == 2:
+                if " -- " not in line:
+                    print(styles.FAIL + styles.BOLD +
+                          " ### ERROR: Line %s: Does not \
+                          contain the following sequence \" -- \" \
+                          to seperate the different ends of the link.\n     %s\n"
+                          % (count, line) + styles.ENDC)
+
+                    exit(1)
+
+
 def add_link(inventory, left_device, right_device, left_interface, right_interface, left_mac_address, right_mac_address, net_number):
     network_string = "net" + str(net_number)
     PortA = str(start_port + net_number)
@@ -1068,7 +1066,7 @@ def remove_generated_files():
         os.remove(dhcp_mac_file)
 
 
-_nsre = re.compile('([0-9]+)')
+# _nsre = re.compile('([0-9]+)')
 
 
 def natural_sort_key(s):
@@ -1305,7 +1303,7 @@ jinja2_extensions=jinja2.ext.do""")
 
 def main():
     parse_arguments()
-    global mac_map
+    # global mac_map
     print(styles.HEADER + "\n######################################")
     print(styles.HEADER + "          Topology Converter")
     print(styles.HEADER + "######################################")

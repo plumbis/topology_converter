@@ -35,241 +35,271 @@ class styles:
     ENDC = '\033[0m'
 
 
-def parse_arguments():
-    """ Parse command line arguments, and return a dict of values."""
-    parser = argparse.ArgumentParser(description='Topology Converter -- Convert \
-                                     topology.dot files into Vagrantfiles')
-    parser.add_argument('topology_file',
-                        help='provide a topology file as input')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='enables verbose logging mode')
-    parser.add_argument('-p', '--provider', choices=["libvirt", "virtualbox"],
-                        help='specifies the provider to be used in the Vagrantfile, \
-                        script supports "virtualbox" or "libvirt", default is virtualbox.')
-    parser.add_argument('-a', '--ansible-hostfile', action='store_true',
-                        help='When specified, ansible hostfile will be generated \
-                        from a dummy playbook run.')
-    parser.add_argument('-c', '--create-mgmt-network', action='store_true',
-                        help='When specified, a mgmt switch and server will be created. \
-                        A /24 is assumed for the mgmt network. mgmt_ip=X.X.X.X will be \
-                        read from each device to create a Static DHCP mapping for \
-                        the oob-mgmt-server.')
-    parser.add_argument('-cco', '--create-mgmt-configs-only', action='store_true',
-                        help='Calling this option does NOT regenerate the Vagrantfile \
-                        but it DOES regenerate the configuration files that come \
-                        packaged with the mgmt-server in the "-c" option. This option \
-                        is typically used after the "-c" has been called to generate \
-                        a Vagrantfile with an oob-mgmt-server and oob-mgmt-switch to \
-                        modify the configuraiton files placed on the oob-mgmt-server \
-                        device. Useful when you do not want to regenerate the \
-                        vagrantfile but you do want to make changes to the \
-                        OOB-mgmt-server configuration templates.')
-    parser.add_argument('-cmd', '--create-mgmt-device', action='store_true',
-                        help='Calling this option creates the mgmt device and runs the \
-                        auto_mgmt_network template engine to load configurations on to \
-                        the mgmt device but it does not create the OOB-MGMT-SWITCH or \
-                        associated connections. Useful when you are manually specifying \
-                        the construction of the management network but still want to have \
-                        the OOB-mgmt-server created automatically.')
-    parser.add_argument('-t', '--template', action='append', nargs=2,
-                        help='Specify an additional jinja2 template and a destination \
-                        for that file to be rendered to.')
-    parser.add_argument('-s', '--start-port', type=int,
-                        help='FOR LIBVIRT PROVIDER: this option overrides \
-                        the default starting-port 8000 with a new value. \
-                        Use ports over 1024 to avoid permissions issues. If using \
-                        this option with the virtualbox provider it will be ignored.')
-    parser.add_argument('-g', '--port-gap', type=int,
-                        help='FOR LIBVIRT PROVIDER: this option overrides the \
-                        default port-gap of 1000 with a new value. This number \
-                        is added to the start-port value to determine the port \
-                        to be used by the remote-side. Port-gap also defines the \
-                        max number of links that can exist in the topology. EX. \
-                        If start-port is 8000 and port-gap is 1000 the first link \
-                        will use ports 8001 and 9001 for the construction of the \
-                        UDP tunnel. If using this option with the virtualbox \
-                        provider it will be ignored.')
-    parser.add_argument('-dd', '--display-datastructures', action='store_true',
-                        help='When specified, the datastructures which are passed \
-                        to the template are displayed to screen. Note: Using \
-                        this option does not write a Vagrantfile and \
-                        supercedes other options.')
-    parser.add_argument('--synced-folder', action='store_true',
-                        help='Using this option enables the default Vagrant \
-                        synced folder which we disable by default. \
-                        See: https://www.vagrantup.com/docs/synced-folders/basic_usage.html')
-    parser.add_argument('--version', action='version', version="Topology \
-                        Converter version is v%s" % version,
-                        help='Using this option displays the version of Topology Converter')
+def check_hostname(hostname):
+    """Simple hostname validation. Must start with letters or numbers"""
 
-    # arg_string = " ".join(sys.argv)
-
-    # if args.template:
-    #     for templatefile, destination in args.template:
-    #         TEMPLATES.append([templatefile, destination])
-
-    # for templatefile, destination in TEMPLATES:
-    #     if not os.path.isfile(templatefile):
-    #         print(styles.FAIL + styles.BOLD + " ### ERROR: provided template file-- \"" +
-    #               templatefile + "\" does not exist!" + styles.ENDC)
-    #         exit(1)
-
-    # if if args.verbose:
-    #     print("Arguments:")
-    #     print(args)
-
-    return parser.parse_args()
-
-
-def parse_topology(topology_file):
-    global provider
-    global verbose
-    global warning
-    lint_topo_file(topology_file)
-    try:
-        topology = pydotplus.graphviz.graph_from_dot_file(topology_file)
-    except Exception as e:
+    # Check that the hostname doesn't start with "." or "-"
+    if hostname.startswith(".") or hostname.startswith("-"):
         print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Cannot parse the provided topology.dot \
-              file (%s)\n     There is probably a syntax error \
-              of some kind, common causes include failing to \
-              close quotation marks and hidden characters from \
-              copy/pasting device names into the topology file."
-              % (topology_file) + styles.ENDC)
+              " ### ERROR: Node name cannot start with a hyphen or period. \
+              '%s' is not valid!\n" % (hostname) + styles.ENDC)
 
-        exit(1)
+        return False
 
+    if not re.compile('^[A-Za-z0-9\.-]+$').match(hostname):
+        print(styles.FAIL + styles.BOLD +
+              " ### ERROR: Node name for the \
+              VM should only contain letters, \
+              numbers, hyphens or dots. It cannot \
+              start with a hyphen or dot.  \
+              '%s' is not valid!\n" % (hostname) + styles.ENDC)
+
+        return False
+
+    return True
+
+
+def get_function_defaults(function):
+    """Returns default OS, memory, provisioning script for device types
+
+
+    Keyword arguments:
+    function - string of the type of device
+
+    Returns dict in the form:
+    {"os": "<vagrant box>", "memory": "<memory value>", "config": "<script location>"}
+    """
+    parsed_function = function.strip("\"").lower()
+
+    host_os = "yk0/ubuntu-xenial"
+    cumulus_vx = "CumulusCommunity/cumulus-vx"
+    default_memory = "512"
+    default_script = "./helper_scripts/extra_switch_config.sh"
+
+    defaults = {
+        "fake": {
+            "os": "None",
+            "memory": "1"
+        },
+        "oob-server": {
+            "os": host_os,
+            "memory": default_memory
+        },
+        "oob-switch": {
+            "os": cumulus_vx,
+            "memory": default_memory,
+            "config": "./helper_scripts/oob_switch_config.sh"
+        },
+        "host": {
+            "os": host_os,
+            "memory": default_memory,
+            "config": "./helper_scripts/extra_server_config.sh"
+        },
+        "pxehost": {
+            "os": "None",
+            "memory": default_memory,
+            "config": "./helper_scripts/extra_server_config.sh"
+        }
+    }
+
+    return defaults.get(parsed_function, {"os": cumulus_vx,
+                                          "memory": default_memory,
+                                          "config": default_script})
+
+
+def supported_libvirt_os(node):
+    """Validates that the node's image is supported by libvirt"""
+    unsupported_images = ["boxcutter/ubuntu1604",
+                          "bento/ubuntu-16.04",
+                          "ubuntu/xenial64"]
+
+    if node["os"] in unsupported_images:
+        return False
+    else:
+        return True
+
+
+def validate_attributes(node, name):
+
+    # What attributes _must_ be present
+    mandatory_attributes = ['os', ]
+
+    # Verify all the manditory attributes are defined
+    for attribute in mandatory_attributes:
+        if attribute not in node:
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: MANDATORY DEVICE ATTRIBUTE \"" + attribute + "\" \
+                  not specified for " + name + styles.ENDC)
+
+            return False
+
+    # Verify that more than 0mb of memory is defined
+    if "memory" in node:
+        if int(node["memory"]) <= 0:
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR -- Memory must be greater than 0mb on " +
+                  name + styles.ENDC)
+
+            return False
+
+    return True
+
+
+def add_mac_colon(mac_address, cli_args):
+    if cli_args.verbose:
+        print("MAC ADDRESS IS: \"%s\"" % mac_address)
+    return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
+
+
+def graphviz_edge_to_tuple(edge, inventory):
+    """Take in a graphviz edge object and turn it into a tuple.
+    The tuple is a pair of dict() representing each side of the link.
+    The dict key is the hostname with associated attributes
+     hostname - the device name
+     interface - the edge interface
+     mac - the mac address, either user provided or code generated
+    """
+    inventory["macs"] = set()
+
+    left_device = edge.get_source().split(":")[0].replace('"', '')
+    left_interface = edge.get_source().split(":")[1].replace('"', '')
+
+    if edge.get('left_mac') is not None:
+        temp_left_mac = edge.get('left_mac').replace('"', '').replace(':', '').lower()
+        left_mac = add_mac_colon(temp_left_mac, cli_args)
+
+    else:
+        left_mac = mac_fetch(left_device, left_interface)
+
+    inventory["macs"].add(left_mac)
+
+    right_device = edge.get_destination().split(":")[0].replace('"', '')
+    right_interface = edge.get_destination().split(":")[1].replace('"', '')
+
+    if edge.get('right_mac') is not None:
+        temp_right_mac = edge.get('right_mac').replace('"', '').replace(':', '').lower()
+        right_mac = add_mac_colon(temp_right_mac)
+
+    else:
+        right_mac = mac_fetch(right_device, right_interface)
+
+    inventory["macs"].add(right_mac)
+
+    return ({"hostname": left_device, "interface": left_interface, "mac": left_mac},
+            {"hostname": right_device, "interface": right_interface, "mac": right_mac})
+
+
+def remove_interface_slash(edge):
+    """Process the source and destinations of an edge and remove slashes.
+
+    Keyword Arguments:
+    edge - an edge of the graph
+    """
+
+    for side in edge:
+        if "/" in side["interface"]:
+            new_interface = side["interface"].replace('/', '-')
+            warning.append(styles.WARNING + styles.BOLD +
+                           "    WARNING: Device %s interface %s has bad \
+                           characters altering to this %s."
+                           % (side["hostname"], side["interface"], new_interface) +
+                           styles.ENDC)
+            side["interface"] = new_interface
+
+    return edge
+
+
+def mac_fetch(starting_mac=443839000000, mac_set, cli_args):
+    """Provides a unique mac address.
+    starting_mac default is based on Cumulus Networks mac range
+    https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux
+
+    Keyword Arguments:
+    starting_mac: the mac address to start from
+    mac_set: the global set of MACs for this topology
+    cli_args: command line inputs
+    """
+
+    new_mac = ("%x" % (int(starting_mac, 16) + len(mac_set))).lower()
+
+    # while new_mac in mac_map:
+    #     warning.append(styles.WARNING + styles.BOLD +
+    #                    "    WARNING: MF MAC Address Collision -- tried to use " +
+    #                    new_mac + " (on " + interface + ") but it was already in use." +
+    #                    styles.ENDC)
+    #     start_mac = new_mac
+    #     new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
+    # start_mac = new_mac
+
+    # if verbose:
+    #     print("    Fetched new MAC ADDRESS: \"%s\"" % new_mac)
+
+    return add_mac_colon(new_mac)
+
+
+def parse_nodes(nodes, cli_args):
+    """Parses the collection of graphviz nodes in the topology diagram
+
+    Keyword arguments:
+    nodes - a list of graphviz node objects
+    cli_args - command line arguments
+
+    Returns a dictionary of the parsed nodes
+    """
+    # define network inventory of hosts and settings
     inventory = {}
 
-    try:
-        nodes = topology.get_node_list()
-
-    except Exception as e:
-        print(e)
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: There is a syntax error in your topology file \
-              (%s). Read the error output above for any clues as to the source."
-              % (topology_file) + styles.ENDC)
-
-        exit(1)
-
-    try:
-        edges = topology.get_edge_list()
-
-    except Exception as e:
-        print(e)
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: There is a syntax error in your topology file \
-              (%s). Read the error output above for any clues as to the source."
-              % (topology_file) + styles.ENDC)
-
-        exit(1)
-
-    # Add Nodes to inventory
+    # iterate over the graph to populate the inventory
     for node in nodes:
 
+        # Strip quotes from the node name
         node_name = node.get_name().replace('"', '')
 
-        if node_name.startswith(".") or node_name.startswith("-"):
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR: Node name cannot start with a hyphen or period. \
-                  '%s' is not valid!\n" % (node_name) + styles.ENDC)
-
+        if not check_hostname(node_name):
             exit(1)
 
-        reg = re.compile('^[A-Za-z0-9\.-]+$')
+        # If the node is in the inventory, then do nothing
+        # else set the node defaults
+        # {"hostname": {"interfaces": {}}}
+        inventory.setdefault(node_name, {"interfaces": {}})
 
-        if not reg.match(node_name):
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR: Node name for the \
-                  VM should only contain letters, \
-                  numbers, hyphens or dots. It cannot \
-                  start with a hyphen or dot.  \
-                  '%s' is not valid!\n" % (node_name) + styles.ENDC)
-
-            exit(1)
-
-        # Try to encode into ascii
-        try:
-            node_name.encode('ascii', 'ignore')
-
-        except UnicodeDecodeError as e:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR: Node name \"%s\" --> \"%s\" \
-                  has hidden unicode characters in it which \
-                  prevent it from being converted to Ascii cleanly. \
-                  Try manually typing it instead of copying and pasting."
-                  % (node_name, re.sub(r'[^\x00-\x7F]+', ' ', node_name)) + styles.ENDC)
-
-            exit(1)
-
-        if node_name not in inventory:
-            inventory[node_name] = {}
-            inventory[node_name]['interfaces'] = {}
-
+        # get_attributes() returns the list of settings at the top of the file
+        # ex. {'function': '"spine"', 'config': '"./helper_scripts/config_switch.sh"',
+        #      'version': '"3.4.3"', 'os': '"CumulusCommunity/cumulus-vx"', 'memory': '"768"'}
         node_attr_list = node.get_attributes()
 
-        # Define Functional Defaults
-        if 'function' in node_attr_list:
-            value = node.get('function')
+        # If the user defined a function, provide defaults
+        if "function" in node_attr_list:
+            # jams the dict returned from get_functional_defaults() into the inventory[node] dict
+            inventory[node_name].update(get_function_defaults(node.get("function")))
+        else:
+            inventory[node_name]["function"] == "Unknown"
 
-            if value.startswith('"') or value.startswith("'"):
-                value = value[1:].lower()
-
-            if value.endswith('"') or value.endswith("'"):
-                value = value[:-1].lower()
-
-            if value == 'fake':
-                inventory[node_name]['os'] = "None"
-                inventory[node_name]['memory'] = "1"
-
-            if value == 'oob-server':
-                inventory[node_name]['os'] = "yk0/ubuntu-xenial"
-                inventory[node_name]['memory'] = "512"
-
-            if value == 'oob-switch':
-                inventory[node_name]['os'] = "CumulusCommunity/cumulus-vx"
-                inventory[node_name]['memory'] = "512"
-                inventory[node_name]['config'] = "./helper_scripts/oob_switch_config.sh"
-
-            elif value in network_functions:
-                inventory[node_name]['os'] = "CumulusCommunity/cumulus-vx"
-                inventory[node_name]['memory'] = "512"
-                inventory[node_name]['config'] = "./helper_scripts/extra_switch_config.sh"
-
-            elif value == 'host':
-                inventory[node_name]['os'] = "yk0/ubuntu-xenial"
-                inventory[node_name]['memory'] = "512"
-                inventory[node_name]['config'] = "./helper_scripts/extra_server_config.sh"
-
-        if provider == 'libvirt' and 'pxehost' in node_attr_list:
-            if node.get('pxehost').replace('"', '') == "True":
-                inventory[node_name]['os'] = "N/A (PXEBOOT)"
+        # TODO: Remove code. Replace "pxehost=true" with "function=pxehost"
+        # if provider == 'libvirt' and 'pxehost' in node_attr_list:
+        #     if node.get('pxehost').replace('"', '') == "True":
+        #         inventory[node_name]['os'] = "N/A (PXEBOOT)"
 
         # Add attributes to node inventory
         for attribute in node_attr_list:
 
-            if verbose:
+            if cli_args.verbose:
                 print(attribute + " = " + node.get(attribute))
 
-            value = node.get(attribute)
+            inventory[node_name][attribute] = node.get(attribute).strip("\"").lower()
 
-            if value.startswith('"') or value.startswith("'"):
-                value = value[1:]
+        # If "config" is defined and the file can't be found
+        # print a warning
+        if "config" in inventory[node_name]:
+            if not os.path.isfile(inventory[node_name]["config"]):
+                print(styles.WARNING + styles.BOLD +
+                      "    WARNING: Node \"" + node_name + "\" \
+                      Config file for device does not exist" + styles.ENDC)
 
-            if value.endswith('"') or value.endswith("'"):
-                value = value[:-1]
-
-            inventory[node_name][attribute] = value
-
-            if (attribute == "config") and (not os.path.isfile(value)):
-                warning.append(styles.WARNING + styles.BOLD +
-                               "    WARNING: Node \"" + node_name + "\" \
-                               Config file for device does not exist" + styles.ENDC)
-
-        if provider == 'libvirt':
-            if 'os' in inventory[node_name]:
-                if inventory[node_name]['os'] == 'boxcutter/ubuntu1604' or inventory[node_name]['os'] == 'bento/ubuntu-16.04' or inventory[node_name]['os'] == 'ubuntu/xenial64':
+        # some box images are know to not work with libvirt
+        # prevent the user from using them
+        if 'os' in inventory[node_name] and cli_args.provider == "libvirt":
+            if not supported_libvirt_os(inventory[node_name]):
                     print(styles.FAIL + styles.BOLD + " ### ERROR: device " + node_name +
                           " -- Incompatible OS for libvirt provider.")
                     print("              Do not attempt to use a mutated image for Ubuntu16.04 on Libvirt")
@@ -278,100 +308,35 @@ def parse_topology(topology_file):
                     print("              See https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection")
                     print("              See https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607")
                     print("              See https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + styles.ENDC)
+
                     exit(1)
 
-        # Make sure mandatory attributes are present.
-        mandatory_attributes = ['os', ]
-        for attribute in mandatory_attributes:
-            if attribute not in inventory[node_name]:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: MANDATORY DEVICE ATTRIBUTE \"" + attribute + "\" \
-                      not specified for " + node_name + styles.ENDC)
+        if not validate_attributes(inventory[node_name], node_name):
+            exit(1)
 
-                exit(1)
+        # If the libvirt tunnelIP isn't defined, make it localhost
+        if cli_args.provider == "libvirt":
+            inventory[node_name].update({"tunnel_ip": "127.0.0.1"})
 
-        # Extra Massaging for specific attributes.
-        # light sanity checking.
-        if 'function' not in inventory[node_name]:
-            inventory[node_name]['function'] = "Unknown"
+    return inventory
 
-        if 'memory' in inventory[node_name]:
-            if int(inventory[node_name]['memory']) <= 0:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR -- Memory must be greater than 0mb on " +
-                      node_name + styles.ENDC)
-                exit(1)
 
-        if provider == "libvirt":
-            if 'tunnel_ip' not in inventory[node_name]:
-                inventory[node_name]['tunnel_ip'] = '127.0.0.1'
+def parse_edges(edges, inventory, cli_args):
+
+    net_number = 1
 
     # Add All the Edges to Inventory
-    net_number = 1
-    for edge in edges:
+
+    for graphviz_edge in edges:
         # if provider == "virtualbox":
         network_string = "net" + str(net_number)
 
         # elif provider == "libvirt":
-        PortA = str(start_port + net_number)
-        PortB = str(start_port + port_gap + net_number)
+        PortA = str(cli_args.start_port + net_number)
+        PortB = str(cli_args.start_port + cli_args.port_gap + net_number)
 
-        # Set Devices/interfaces/MAC Addresses
-        left_device = edge.get_source().split(":")[0].replace('"', '')
-        left_interface = edge.get_source().split(":")[1].replace('"', '')
+        edge = remove_interface_slash(graphviz_edge_to_tuple(graphviz_edge, inventory))
 
-        if "/" in left_interface:
-            new_left_interface = left_interface.replace('/', '-')
-            warning.append(styles.WARNING + styles.BOLD +
-                           "    WARNING: Device %s interface %s has bad \
-                           characters altering to this %s."
-                           % (left_device, left_interface, new_left_interface) +
-                           styles.ENDC)
-            left_interface = new_left_interface
-
-        right_device = edge.get_destination().split(":")[0].replace('"', '')
-        right_interface = edge.get_destination().split(":")[1].replace('"', '')
-        if "/" in right_interface:
-            new_right_interface = right_interface.replace('/', '-')
-            warning.append(styles.WARNING + styles.BOLD +
-                           "    WARNING: Device %s interface %s has bad \
-                           characters altering to this %s."
-                           % (right_device, right_interface, new_right_interface) +
-                           styles.ENDC)
-            right_interface = new_right_interface
-
-        for value in [left_device, left_interface, right_device, right_interface]:
-            # Try to encode into ascii
-            try:
-                value.encode('ascii', 'ignore')
-            except UnicodeDecodeError as e:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: in line --> \"%s\":\"%s\" -- \"%s\":\"%s\"\n        \
-                      Link component: \"%s\" has hidden unicode characters in it \
-                      which prevent it from being converted to Ascii cleanly. \
-                      Try manually typing it instead of copying and pasting."
-                      % (left_device, left_interface, right_device, right_interface,
-                         re.sub(r'[^\x00-\x7F]+', ' ', value)) + styles.ENDC)
-
-                exit(1)
-
-        left_mac_address = ""
-
-        if edge.get('left_mac') is not None:
-            temp_left_mac = edge.get('left_mac').replace('"', '').replace(':', '').lower()
-            left_mac_address = add_mac_colon(temp_left_mac)
-
-        else:
-            left_mac_address = mac_fetch(left_device, left_interface)
-
-        right_mac_address = ""
-
-        if edge.get('right_mac') is not None:
-            temp_right_mac = edge.get('right_mac').replace('"', '').replace(':', '').lower()
-            right_mac_address = add_mac_colon(temp_right_mac)
-
-        else:
-            right_mac_address = mac_fetch(right_device, right_interface)
 
         # Check to make sure each device in the edge already exists in inventory
         if left_device not in inventory:
@@ -429,6 +394,200 @@ def parse_topology(topology_file):
                 # edge_attributes[attribute]=value
 
         net_number += 1
+
+def parse_arguments():
+    """ Parse command line arguments, and return a dict of values."""
+    parser = argparse.ArgumentParser(description='Topology Converter -- Convert \
+                                     topology.dot files into Vagrantfiles')
+    parser.add_argument('topology_file',
+                        help='provide a topology file as input')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='enables verbose logging mode')
+    parser.add_argument('-p', '--provider', choices=["libvirt", "virtualbox"], default="virtualbox",
+                        help='specifies the provider to be used in the Vagrantfile, \
+                        script supports "virtualbox" or "libvirt", default is virtualbox.')
+    parser.add_argument('-a', '--ansible-hostfile', action='store_true',
+                        help='When specified, ansible hostfile will be generated \
+                        from a dummy playbook run.')
+    parser.add_argument('-c', '--create-mgmt-network', action='store_true',
+                        help='When specified, a mgmt switch and server will be created. \
+                        A /24 is assumed for the mgmt network. mgmt_ip=X.X.X.X will be \
+                        read from each device to create a Static DHCP mapping for \
+                        the oob-mgmt-server.')
+    parser.add_argument('-cco', '--create-mgmt-configs-only', action='store_true',
+                        help='Calling this option does NOT regenerate the Vagrantfile \
+                        but it DOES regenerate the configuration files that come \
+                        packaged with the mgmt-server in the "-c" option. This option \
+                        is typically used after the "-c" has been called to generate \
+                        a Vagrantfile with an oob-mgmt-server and oob-mgmt-switch to \
+                        modify the configuraiton files placed on the oob-mgmt-server \
+                        device. Useful when you do not want to regenerate the \
+                        vagrantfile but you do want to make changes to the \
+                        OOB-mgmt-server configuration templates.')
+    parser.add_argument('-cmd', '--create-mgmt-device', action='store_true',
+                        help='Calling this option creates the mgmt device and runs the \
+                        auto_mgmt_network template engine to load configurations on to \
+                        the mgmt device but it does not create the OOB-MGMT-SWITCH or \
+                        associated connections. Useful when you are manually specifying \
+                        the construction of the management network but still want to have \
+                        the OOB-mgmt-server created automatically.')
+    parser.add_argument('-t', '--template', action='append', nargs=2,
+                        help='Specify an additional jinja2 template and a destination \
+                        for that file to be rendered to.')
+    parser.add_argument('-s', '--start-port', type=int, default=8000,
+                        help='FOR LIBVIRT PROVIDER: this option overrides \
+                        the default starting-port 8000 with a new value. \
+                        Use ports over 1024 to avoid permissions issues. If using \
+                        this option with the virtualbox provider it will be ignored.')
+    parser.add_argument('-g', '--port-gap', type=int, default=1000,
+                        help='FOR LIBVIRT PROVIDER: this option overrides the \
+                        default port-gap of 1000 with a new value. This number \
+                        is added to the start-port value to determine the port \
+                        to be used by the remote-side. Port-gap also defines the \
+                        max number of links that can exist in the topology. EX. \
+                        If start-port is 8000 and port-gap is 1000 the first link \
+                        will use ports 8001 and 9001 for the construction of the \
+                        UDP tunnel. If using this option with the virtualbox \
+                        provider it will be ignored.')
+    parser.add_argument('-dd', '--display-datastructures', action='store_true',
+                        help='When specified, the datastructures which are passed \
+                        to the template are displayed to screen. Note: Using \
+                        this option does not write a Vagrantfile and \
+                        supercedes other options.')
+    parser.add_argument('--synced-folder', action='store_true',
+                        help='Using this option enables the default Vagrant \
+                        synced folder which we disable by default. \
+                        See: https://www.vagrantup.com/docs/synced-folders/basic_usage.html')
+    parser.add_argument('--version', action='version', version="Topology \
+                        Converter version is v%s" % version,
+                        help='Using this option displays the version of Topology Converter')
+
+    # arg_string = " ".join(sys.argv)
+
+    # if args.template:
+    #     for templatefile, destination in args.template:
+    #         TEMPLATES.append([templatefile, destination])
+
+    # for templatefile, destination in TEMPLATES:
+    #     if not os.path.isfile(templatefile):
+    #         print(styles.FAIL + styles.BOLD + " ### ERROR: provided template file-- \"" +
+    #               templatefile + "\" does not exist!" + styles.ENDC)
+    #         exit(1)
+
+    # if if args.verbose:
+    #     print("Arguments:")
+    #     print(args)
+
+    return parser.parse_args()
+
+
+def lint_topo_file(topology_file):
+    """Validate the contents of the .dot topology file
+
+    This is a simple linter for dot files to help identify
+    where file errors are. This is independent of the full
+    .dot file parser provided by pydot.
+
+    This will check for:
+     - ASCII encoding
+     - Balanced double quotes ("")
+     - Balanced single quotes/ticks ('')
+     - That "--" exists to denote each side of the link
+
+    Keyword arguments:
+    topology_file - an ASCII encoded text file representing the topology
+    """
+    with open(topology_file, "r") as topo_file:
+        line_list = topo_file.readlines()
+        count = 0
+
+        for line in line_list:
+            count += 1
+            # Try to encode into ascii
+            # TODO: understand if UTF-8 support is possible
+            # seems supported by pydot
+            try:
+                line.encode('ascii', 'ignore')
+
+            except UnicodeDecodeError:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
+                      Has hidden unicode characters in it which prevent it \
+                      from being converted to ASCII cleanly. Try manually \
+                      typing it instead of copying and pasting."
+                      % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
+                return False
+
+            if line.count("\"") % 2 == 1:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: Line %s: Has an odd \
+                      number of quotation characters \
+                      (\").\n     %s\n" % (count, line) + styles.ENDC)
+                return False
+
+            if line.count("'") % 2 == 1:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: Line %s: Has an odd \
+                      number of quotation characters \
+                      (').\n     %s\n" % (count, line) + styles.ENDC)
+                return False
+
+            if line.count(":") == 2:
+                if " -- " not in line:
+                    print(styles.FAIL + styles.BOLD +
+                          " ### ERROR: Line %s: Does not \
+                          contain the following sequence \" -- \" \
+                          to seperate the different ends of the link.\n     %s\n"
+                          % (count, line) + styles.ENDC)
+
+                    return False
+    return True
+
+
+def parse_topology(cli_args):
+    """
+    Parse the provide topology file. Failures to parse will exit(1)
+
+    Keyword arguments:
+    topology_file - text topology file provided at command line
+    provider - the desired virtualization provider (libvirt, virtualbox)
+    verbose - print verbose outputs
+    """
+
+    # Pass through simple linter first to identify easy problems
+    if not lint_topo_file(cli_args.topology_file):
+        exit(1)
+
+    # Open the .dot file and parse with graphviz
+    try:
+        topology = pydotplus.graphviz.graph_from_dot_file(cli_args.topology_file)
+
+    except Exception as e:
+        print(styles.FAIL + styles.BOLD +
+              " ### ERROR: Cannot parse the provided topology.dot \
+              file (%s)\n     There is probably a syntax error \
+              of some kind, common causes include failing to \
+              close quotation marks and hidden characters from \
+              copy/pasting device names into the topology file."
+              % (cli_args.topology_file) + styles.ENDC)
+
+        exit(1)
+
+    try:
+        nodes = topology.get_node_list()
+        edges = topology.get_edge_list()
+
+    except Exception as e:
+        print(e)
+        print(styles.FAIL + styles.BOLD +
+              " ### ERROR: There is a syntax error in your topology file \
+              (%s). Read the error output above for any clues as to the source."
+              % (cli_args.topology_file) + styles.ENDC)
+
+        exit(1)
+
+    inventory = parse_nodes(nodes, cli_args)
+    inventory = parse_edges(edges, inventory, cli_args)
 
     # Remove PXEbootinterface attribute from hosts which are not set to PXEboot=True
     for device in inventory:
@@ -853,78 +1012,7 @@ def parse_topology(topology_file):
 #        allow you to avoid reusing interfaces here.
 # """
 
-###### Functions
-def mac_fetch(hostname, interface):
-    global start_mac
-    global mac_map
-    global warning
-    global verbose
-    new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
-    while new_mac in mac_map:
-        warning.append(styles.WARNING + styles.BOLD +
-                       "    WARNING: MF MAC Address Collision -- tried to use " +
-                       new_mac + " (on " + interface + ") but it was already in use." +
-                       styles.ENDC)
-        start_mac = new_mac
-        new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
-    start_mac = new_mac
 
-    if verbose:
-        print("    Fetched new MAC ADDRESS: \"%s\"" % new_mac)
-
-    return add_mac_colon(new_mac)
-
-
-def add_mac_colon(mac_address):
-    global verbose
-    if verbose:
-        print("MAC ADDRESS IS: \"%s\"" % mac_address)
-    return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
-
-
-def lint_topo_file(topology_file):
-    with open(topology_file, "r") as topo_file:
-        line_list = topo_file.readlines()
-        count = 0
-
-        for line in line_list:
-            count += 1
-            # Try to encode into ascii
-            try:
-                line.encode('ascii', 'ignore')
-
-            except UnicodeDecodeError as e:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
-                      Has hidden unicode characters in it which prevent it \
-                      from being converted to ASCII cleanly. Try manually \
-                      typing it instead of copying and pasting."
-                      % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
-                exit(1)
-
-            if line.count("\"") % 2 == 1:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s: Has an odd \
-                      number of quotation characters \
-                      (\").\n     %s\n" % (count, line) + styles.ENDC)
-                exit(1)
-
-            if line.count("'") % 2 == 1:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s: Has an odd \
-                      number of quotation characters \
-                      (').\n     %s\n" % (count, line) + styles.ENDC)
-                exit(1)
-
-            if line.count(":") == 2:
-                if " -- " not in line:
-                    print(styles.FAIL + styles.BOLD +
-                          " ### ERROR: Line %s: Does not \
-                          contain the following sequence \" -- \" \
-                          to seperate the different ends of the link.\n     %s\n"
-                          % (count, line) + styles.ENDC)
-
-                    exit(1)
 
 
 def add_link(inventory, left_device, right_device, left_interface, right_interface, left_mac_address, right_mac_address, net_number):
@@ -1302,14 +1390,14 @@ jinja2_extensions=jinja2.ext.do""")
 
 
 def main():
-    parse_arguments()
+    cli_args = parse_arguments()
     # global mac_map
     print(styles.HEADER + "\n######################################")
     print(styles.HEADER + "          Topology Converter")
     print(styles.HEADER + "######################################")
     print(styles.BLUE + "           originally written by Eric Pulvino")
 
-    inventory = parse_topology(topology_file)
+    inventory = parse_topology(cli_args)
 
     devices = populate_data_structures(inventory)
 

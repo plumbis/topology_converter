@@ -36,23 +36,46 @@ class styles:
 
 
 def check_hostname(hostname):
-    """Simple hostname validation. Must start with letters or numbers"""
+    """Simple hostname validation.
+    Using rules described in wikipedia article
+    https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_hostnames
+    """
 
-    # Check that the hostname doesn't start with "." or "-"
-    if hostname.startswith(".") or hostname.startswith("-"):
+    # contain only the ASCII letters 'a' through 'z' (in a case-insensitive manner),
+    # the digits '0' through '9', and the minus sign ('-').
+    # The original specification of hostnames in RFC 952, mandated that labels could not
+    # start with a digit or with a minus sign, and must not end with a minus sign.
+    # However, a subsequent specification (RFC 1123) permitted hostname labels to start with digits.
+    # No other symbols, punctuation characters, or white space are permitted.
+    # While a hostname may not contain other characters, such as the underscore character (_)
+
+    if len(hostname.strip()) <= 0:
         print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Node name cannot start with a hyphen or period. \
-              '%s' is not valid!\n" % (hostname) + styles.ENDC)
+              " ### ERROR: Node name is blank" + styles.ENDC)
 
         return False
 
-    if not re.compile('^[A-Za-z0-9\.-]+$').match(hostname):
+    # Hostname can only start with a letter or number
+    if not re.compile('[A-Za-z0-9]').match(hostname[0]):
         print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Node name for the \
-              VM should only contain letters, \
-              numbers, hyphens or dots. It cannot \
-              start with a hyphen or dot.  \
-              '%s' is not valid!\n" % (hostname) + styles.ENDC)
+              " ### ERROR: Node name can only start with letters or numbers " +
+              "'%s' is not valid!\n" % (hostname) + styles.ENDC)
+
+        return False
+
+    # Hostname can not end with a dash
+    if not re.compile('[A-Za-z0-9]').match(hostname[-1]):
+        print(styles.FAIL + styles.BOLD +
+              " ### ERROR: Node name can only end with letters or numbers " +
+              "'%s' is not valid!\n" % (hostname) + styles.ENDC)
+
+        return False
+
+    # Hostname can only contain A-Z, 0-9 and "-"
+    if not re.compile('^[A-Za-z0-9\-]+$').match(hostname):
+        print(styles.FAIL + styles.BOLD +
+              " ### ERROR: Node name can only contain letters numbers and dash(-) " +
+              "'%s' is not valid!\n" % (hostname) + styles.ENDC)
 
         return False
 
@@ -83,7 +106,8 @@ def get_function_defaults(function):
         },
         "oob-server": {
             "os": host_os,
-            "memory": default_memory
+            "memory": default_memory,
+            "config": "./helper_scripts/auto_mgmt_network/OOB_Server_Config_auto_mgmt.sh"
         },
         "oob-switch": {
             "os": cumulus_vx,
@@ -190,17 +214,18 @@ def remove_interface_slash(edge):
     """Process the source and destinations of an edge and remove slashes.
 
     Keyword Arguments:
-    edge - an edge of the graph
+    edge - a processed edge of the graph. Not a graphviz edge object
     """
 
     for side in edge:
         if "/" in side["interface"]:
             new_interface = side["interface"].replace('/', '-')
-            warning.append(styles.WARNING + styles.BOLD +
-                           "    WARNING: Device %s interface %s has bad \
-                           characters altering to this %s."
-                           % (side["hostname"], side["interface"], new_interface) +
-                           styles.ENDC)
+            print(styles.WARNING + styles.BOLD +
+                  "    WARNING: Device " + str(side["hostname"]) + " interface"
+                  " " + str(side["interface"]) + " contains a slash"
+                  " and will be convereted to " + str(new_interface),
+                  styles.ENDC)
+
             side["interface"] = new_interface
 
     return edge
@@ -216,7 +241,7 @@ def mac_fetch(edge, inventory, cli_args):
     """
     # starting_mac default is based on Cumulus Networks mac range
     # https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux
-    starting_mac = 443839000000
+    starting_mac = "443839000000"
 
     for side in edge:
         # if the user did not define a mac, make one up.
@@ -224,7 +249,7 @@ def mac_fetch(edge, inventory, cli_args):
         # but that's easier than keeping a global counter
         if side["mac"] is None:
             mac_offset = len(inventory["macs"])
-            candidate_mac = ("%x" % (int(starting_mac, 16) + mac_offset)).lower()
+            candidate_mac = ("%x" % (int(starting_mac, 16) + 1)).lower()
 
             while candidate_mac not in inventory["macs"]:
 
@@ -237,8 +262,11 @@ def mac_fetch(edge, inventory, cli_args):
                 mac_offset += 1
                 candidate_mac = ("%x" % (int(starting_mac, 16) + mac_offset)).lower()
 
-            side["mac"] = candidate_mac
-            inventory["mac"].add(side["mac"])
+                if candidate_mac not in inventory["macs"]:
+                    inventory["macs"].add(candidate_mac)
+                    side["mac"] = candidate_mac
+
+            print side
 
         # track the user provided mac
         else:
@@ -345,7 +373,7 @@ def parse_nodes(nodes, cli_args):
 
         # some box images are know to not work with libvirt
         # prevent the user from using them
-        if 'os' in inventory[node_name] and cli_args.provider == "libvirt":
+        if "os" in inventory[node_name] and cli_args.provider == "libvirt":
             if not supported_libvirt_os(inventory[node_name]):
                     print(styles.FAIL + styles.BOLD + " ### ERROR: device " + node_name +
                           " -- Incompatible OS for libvirt provider.")
@@ -1289,40 +1317,39 @@ def main():
     if cli_args.create_mgmt_device:
         inventory = build_mgmt_network(inventory, cli_args)
 
-    devices = populate_data_structures(inventory)
+    # devices = populate_data_structures(inventory)
 
-    remove_generated_files()
+    # remove_generated_files()
 
-    render_jinja_templates(devices)
+    # render_jinja_templates(devices)
 
-    generate_dhcp_mac_file(mac_map)
+    # generate_dhcp_mac_file(mac_map)
 
-    generate_ansible_files()
+    # generate_ansible_files()
 
-    if create_mgmt_configs_only:
-        print(styles.GREEN + styles.BOLD +
-              "\n############\nSUCCESS: MGMT Network Templates have been regenerated!\n############" +
-              styles.ENDC)
-    else:
-        print(styles.GREEN + styles.BOLD +
-              "\n############\nSUCCESS: Vagrantfile has been generated!\n############" +
-              styles.ENDC)
-        print(styles.GREEN + styles.BOLD +
-              "\n            %s devices under simulation." % (len(devices)) +
-              styles.ENDC)
+    # if create_mgmt_configs_only:
+    #     print(styles.GREEN + styles.BOLD +
+    #           "\n############\nSUCCESS: MGMT Network Templates have been regenerated!\n############" +
+    #           styles.ENDC)
+    # else:
+    #     print(styles.GREEN + styles.BOLD +
+    #           "\n############\nSUCCESS: Vagrantfile has been generated!\n############" +
+    #           styles.ENDC)
+    #     print(styles.GREEN + styles.BOLD +
+    #           "\n            %s devices under simulation." % (len(devices)) +
+    #           styles.ENDC)
 
-    for device in inventory:
-        print(styles.GREEN + styles.BOLD +
-              "                %s" % (inventory[device]['hostname']) +
-              styles.ENDC)
+    # for device in inventory:
+    #     print(styles.GREEN + styles.BOLD +
+    #           "                %s" % (inventory[device]['hostname']) +
+    #           styles.ENDC)
 
-    for warn_msg in warning:
-        print(warn_msg)
+    # for warn_msg in warning:
+    #     print(warn_msg)
 
-    print("\nDONE!\n")
+    # print("\nDONE!\n")
 
+    exit(0)
 
 if __name__ == "__main__":
     main()
-
-exit(0)

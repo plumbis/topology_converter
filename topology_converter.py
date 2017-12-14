@@ -151,42 +151,39 @@ def add_mac_colon(mac_address, cli_args):
     return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
 
 
-def graphviz_edge_to_tuple(edge, inventory):
+def graphviz_edge_to_tuple(edge):
     """Take in a graphviz edge object and turn it into a tuple.
     The tuple is a pair of dict() representing each side of the link.
     The dict key is the hostname with associated attributes
      hostname - the device name
      interface - the edge interface
-     mac - the mac address, either user provided or code generated
+     mac - the mac address, either user provided or None
     """
-    inventory["macs"] = set()
+    left = dict()
+    right = dict()
+    left["hostname"] = edge.get_source().split(":")[0].replace('"', '')
+    left["interface"] = edge.get_source().split(":")[1].replace('"', '')
+    left["mac"] = edge.get("left_mac")
 
-    left_device = edge.get_source().split(":")[0].replace('"', '')
-    left_interface = edge.get_source().split(":")[1].replace('"', '')
+    right["hostname"] = edge.get_destination().split(":")[0].replace('"', '')
+    right["interface"] = edge.get_destination().split(":")[1].replace('"', '')
+    right["mac"] = edge.get("right_mac")
 
-    if edge.get('left_mac') is not None:
-        temp_left_mac = edge.get('left_mac').replace('"', '').replace(':', '').lower()
-        left_mac = add_mac_colon(temp_left_mac, cli_args)
+    # Process passthrough attributes
+    for attribute in edge.get_attributes():
+        value = edge.get(attribute).strip("\"")
 
-    else:
-        left_mac = mac_fetch(left_device, left_interface)
+        if attribute.startswith('left_'):
+            left[attribute[5:]] = value
 
-    inventory["macs"].add(left_mac)
+        elif attribute.startswith('right_'):
+            right[attribute[6:]] = value
 
-    right_device = edge.get_destination().split(":")[0].replace('"', '')
-    right_interface = edge.get_destination().split(":")[1].replace('"', '')
+        else:
+            left[attribute] = value
+            right[attribute] = value
 
-    if edge.get('right_mac') is not None:
-        temp_right_mac = edge.get('right_mac').replace('"', '').replace(':', '').lower()
-        right_mac = add_mac_colon(temp_right_mac)
-
-    else:
-        right_mac = mac_fetch(right_device, right_interface)
-
-    inventory["macs"].add(right_mac)
-
-    return ({"hostname": left_device, "interface": left_interface, "mac": left_mac},
-            {"hostname": right_device, "interface": right_interface, "mac": right_mac})
+    return (left, right)
 
 
 def remove_interface_slash(edge):
@@ -209,32 +206,84 @@ def remove_interface_slash(edge):
     return edge
 
 
-def mac_fetch(starting_mac=443839000000, mac_set, cli_args):
+def mac_fetch(edge, inventory, cli_args):
     """Provides a unique mac address.
-    starting_mac default is based on Cumulus Networks mac range
-    https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux
 
     Keyword Arguments:
-    starting_mac: the mac address to start from
-    mac_set: the global set of MACs for this topology
+    edge: the edge to process MAC address for
+    inventory: the topology inventory
     cli_args: command line inputs
     """
+    # starting_mac default is based on Cumulus Networks mac range
+    # https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux
+    starting_mac = 443839000000
 
-    new_mac = ("%x" % (int(starting_mac, 16) + len(mac_set))).lower()
+    for side in edge:
+        # if the user did not define a mac, make one up.
+        # This will skip some MACs if the user defines any MACs
+        # but that's easier than keeping a global counter
+        if side["mac"] is None:
+            mac_offset = len(inventory["macs"])
+            candidate_mac = ("%x" % (int(starting_mac, 16) + mac_offset)).lower()
 
-    # while new_mac in mac_map:
-    #     warning.append(styles.WARNING + styles.BOLD +
-    #                    "    WARNING: MF MAC Address Collision -- tried to use " +
-    #                    new_mac + " (on " + interface + ") but it was already in use." +
-    #                    styles.ENDC)
-    #     start_mac = new_mac
-    #     new_mac = ("%x" % (int(start_mac, 16) + 1)).lower()
-    # start_mac = new_mac
+            while candidate_mac not in inventory["macs"]:
 
-    # if verbose:
-    #     print("    Fetched new MAC ADDRESS: \"%s\"" % new_mac)
+                if cli_args.verbose:
+                    print(styles.WARNING + styles.BOLD +
+                          "    WARNING: MF MAC Address Collision -- tried to use " +
+                          candidate_mac + " (on " + side["interface"] + ") but it was already in use." +
+                          styles.ENDC)
 
-    return add_mac_colon(new_mac)
+                mac_offset += 1
+                candidate_mac = ("%x" % (int(starting_mac, 16) + mac_offset)).lower()
+
+            side["mac"] = candidate_mac
+            inventory["mac"].add(side["mac"])
+
+        # track the user provided mac
+        else:
+            inventory["mac"].add(side["mac"])
+
+        if cli_args.verbose:
+            print("    Fetched new MAC ADDRESS: \"%s\"" % side["mac"])
+
+    return inventory, edge
+
+
+def add_link(edge, inventory, cli_args):
+    """Adds a link to the inventory
+    """
+    #### TODO: ADD SUPPORT FOR "NOTHING" LINKS
+    for side in edge:
+        if side["interface"] in inventory[side["hostname"]]["interfaces"]:
+            print(styles.FAIL + styles.BOLD + " ### ERROR -- Interface " + side["interface"] +
+                  " Already used on device: " + side["hostname"] + styles.ENDC)
+            exit(1)
+        else:
+            inventory[side["hostname"]]["interfaces"] = {side["interface"]: {"mac": side["mac"]}}
+
+            # This code is very suspect.
+            if cli_args.provider == "virtualbox":
+                if "network" in inventory[side["hostname"]]["interfaces"][side["interface"]]:
+                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = "net" + len(inventory[side["hostname"]]["interfaces"])
+                else:
+                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = "net1"
+
+            elif cli_args.provider == "libvirt":
+                PortA = str(cli_args.start_port + 1)
+                PortB = str(cli_args.start_port + cli_args.port_gap + 1)
+
+                if int(PortA) > int(cli_args.start_port + cli_args.port_gap):
+                    print(styles.FAIL + styles.BOLD +
+                          " ### ERROR: Configured Port_Gap: (" + str(cli_args.port_gap) + ") \
+                          exceeds the number of links in the topology. Read the help options to fix.\n\n" +
+                          styles.ENDC)
+
+                    exit(1)
+                inventory[side["hostname"]]["interfaces"][side["interface"]]["network"]["local_port"] = PortA
+                inventory[side["hostname"]]["interfaces"][side["interface"]]["network"]["remote_port"] = PortB
+
+    return inventory
 
 
 def parse_nodes(nodes, cli_args):
@@ -258,6 +307,9 @@ def parse_nodes(nodes, cli_args):
         if not check_hostname(node_name):
             exit(1)
 
+        # track global mac assignment
+        inventory["macs"] = set()
+
         # If the node is in the inventory, then do nothing
         # else set the node defaults
         # {"hostname": {"interfaces": {}}}
@@ -274,11 +326,6 @@ def parse_nodes(nodes, cli_args):
             inventory[node_name].update(get_function_defaults(node.get("function")))
         else:
             inventory[node_name]["function"] == "Unknown"
-
-        # TODO: Remove code. Replace "pxehost=true" with "function=pxehost"
-        # if provider == 'libvirt' and 'pxehost' in node_attr_list:
-        #     if node.get('pxehost').replace('"', '') == "True":
-        #         inventory[node_name]['os'] = "N/A (PXEBOOT)"
 
         # Add attributes to node inventory
         for attribute in node_attr_list:
@@ -323,77 +370,19 @@ def parse_nodes(nodes, cli_args):
 
 def parse_edges(edges, inventory, cli_args):
 
-    net_number = 1
-
     # Add All the Edges to Inventory
 
     for graphviz_edge in edges:
-        # if provider == "virtualbox":
-        network_string = "net" + str(net_number)
 
-        # elif provider == "libvirt":
-        PortA = str(cli_args.start_port + net_number)
-        PortB = str(cli_args.start_port + cli_args.port_gap + net_number)
+        edge = remove_interface_slash(graphviz_edge_to_tuple(graphviz_edge))
 
-        edge = remove_interface_slash(graphviz_edge_to_tuple(graphviz_edge, inventory))
+        inventory, edge = mac_fetch(edge, inventory)
 
-
-        # Check to make sure each device in the edge already exists in inventory
-        if left_device not in inventory:
-            print(styles.FAIL + styles.BOLD + " ### ERROR: device " +
-                  left_device + " is referred to in list of edges/links \
-                  but not defined as a node." + styles.ENDC)
-
-            exit(1)
-
-        if right_device not in inventory:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR: device " + right_device + " is referred to \
-                  in list of edges/links but not defined as a node." + styles.ENDC)
-
-            exit(1)
+        inventory = add_link(edge, inventory, cli_args)
 
         # Adds link to inventory datastructure
-        add_link(inventory,
-                 left_device,
-                 right_device,
-                 left_interface,
-                 right_interface,
-                 left_mac_address,
-                 right_mac_address,
-                 net_number,)
+        inventory = add_link(edge, inventory, cli_args)
 
-        # Handle Link-based Passthrough Attributes
-        edge_attributes = {}
-        for attribute in edge.get_attributes():
-            if attribute == "left_mac" or attribute == "right_mac":
-                continue
-
-            if attribute in edge_attributes:
-                warning.append(styles.WARNING + styles.BOLD +
-                               "    WARNING: Attribute \"" + attribute +
-                               "\" specified twice. Using second value." + styles.ENDC)
-
-            value = edge.get(attribute)
-
-            if value.startswith('"') or value.startswith("'"):
-                value = value[1:]
-
-            if value.endswith('"') or value.endswith("'"):
-                value = value[:-1]
-
-            if attribute.startswith('left_'):
-                inventory[left_device]['interfaces'][left_interface][attribute[5:]] = value
-
-            elif attribute.startswith('right_'):
-                inventory[right_device]['interfaces'][right_interface][attribute[6:]] = value
-
-            else:
-                inventory[left_device]['interfaces'][left_interface][attribute] = value
-                inventory[right_device]['interfaces'][right_interface][attribute] = value
-                # edge_attributes[attribute]=value
-
-        net_number += 1
 
 def parse_arguments():
     """ Parse command line arguments, and return a dict of values."""
@@ -589,6 +578,11 @@ def parse_topology(cli_args):
     inventory = parse_nodes(nodes, cli_args)
     inventory = parse_edges(edges, inventory, cli_args)
 
+    return inventory
+
+
+def check_pxe(inventory, cli_args):
+    #######
     # Remove PXEbootinterface attribute from hosts which are not set to PXEboot=True
     for device in inventory:
 
@@ -626,6 +620,8 @@ def parse_topology(cli_args):
 
             exit(1)
 
+
+def build_mgmt_network(inventory, cli_args):
     #######################
     # Add Mgmt Network Links
     #######################
@@ -959,7 +955,6 @@ def parse_topology(cli_args):
 
     return inventory
 
-
 # Parse Arguments
 # network_functions = ['oob-switch', 'internet', 'exit', 'superspine', 'spine', 'leaf', 'tor']
 # function_group = {}
@@ -997,115 +992,6 @@ def parse_topology(cli_args):
 # script_storage = "./helper_scripts"
 # epoch_time = str(int(time.time()))
 # mac_map = {}
-
-
-# # Static Variables -- #Do not change!
-# warning = []
-# libvirt_reuse_error = """
-#        When constructing a VAGRANTFILE for the libvirt provider
-#        interface reuse is not possible because the UDP tunnels
-#        which libvirt uses for communication are point-to-point in
-#        nature. It is not possible to create a point-to-multipoint
-#        UDP tunnel!
-
-#        NOTE: Perhaps adding another switch to your topology would
-#        allow you to avoid reusing interfaces here.
-# """
-
-
-
-
-def add_link(inventory, left_device, right_device, left_interface, right_interface, left_mac_address, right_mac_address, net_number):
-    network_string = "net" + str(net_number)
-    PortA = str(start_port + net_number)
-    PortB = str(start_port + port_gap + net_number)
-
-    if int(PortA) > int(start_port + port_gap) and provider == "libvirt":
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Configured Port_Gap: (" + str(port_gap) + ") \
-              exceeds the number of links in the topology. Read the help options to fix.\n\n" +
-              styles.ENDC)
-
-        parser.print_help()
-        exit(1)
-
-    global mac_map
-    # Add a Link to the Inventory for both switches
-
-    # Add left host switchport to inventory
-    if left_interface not in inventory[left_device]['interfaces']:
-        inventory[left_device]['interfaces'][left_interface] = {}
-        inventory[left_device]['interfaces'][left_interface]['mac'] = left_mac_address
-
-        if left_mac_address in mac_map:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR -- MAC Address Collision - tried to use " +
-                  left_mac_address + " on " + left_device + ":" + left_interface +
-                  "\n                 but it is already in use. Check your Topology File!" +
-                  styles.ENDC)
-            exit(1)
-
-        mac_map[left_mac_address] = left_device + "," + left_interface
-
-        if provider == "virtualbox":
-            inventory[left_device]['interfaces'][left_interface]['network'] = network_string
-
-        elif provider == "libvirt":
-            inventory[left_device]['interfaces'][left_interface]['local_port'] = PortA
-            inventory[left_device]['interfaces'][left_interface]['remote_port'] = PortB
-
-    else:
-        print(styles.FAIL + styles.BOLD + " ### ERROR -- Interface " + left_interface + " Already used on device: " + left_device + styles.ENDC)
-        exit(1)
-
-    # Add right host switchport to inventory
-    if right_device == "NOTHING":
-        pass
-
-    elif right_interface not in inventory[right_device]['interfaces']:
-        inventory[right_device]['interfaces'][right_interface] = {}
-        inventory[right_device]['interfaces'][right_interface]['mac'] = right_mac_address
-
-        if right_mac_address in mac_map:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR -- MAC Address Collision - tried to use " +
-                  right_mac_address + " on " + right_device + ":" + right_interface +
-                  "\n                 but it is already in use. Check your Topology File!" +
-                  styles.ENDC)
-
-            exit(1)
-
-        mac_map[right_mac_address] = right_device + "," + right_interface
-
-        if provider == "virtualbox":
-            inventory[right_device]['interfaces'][right_interface]['network'] = network_string
-
-        elif provider == "libvirt":
-            inventory[right_device]['interfaces'][right_interface]['local_port'] = PortB
-            inventory[right_device]['interfaces'][right_interface]['remote_port'] = PortA
-
-    else:
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR -- Interface " + right_interface +
-              " Already used on device: " + right_device + styles.ENDC)
-        exit(1)
-
-    inventory[left_device]['interfaces'][left_interface]['remote_interface'] = right_interface
-    inventory[left_device]['interfaces'][left_interface]['remote_device'] = right_device
-
-    if right_device != "NOTHING":
-        inventory[right_device]['interfaces'][right_interface]['remote_interface'] = left_interface
-        inventory[right_device]['interfaces'][right_interface]['remote_device'] = left_device
-
-    if provider == 'libvirt':
-        if right_device != "NOTHING":
-            inventory[left_device]['interfaces'][left_interface]['local_ip'] = inventory[left_device]['tunnel_ip']
-            inventory[left_device]['interfaces'][left_interface]['remote_ip'] = inventory[right_device]['tunnel_ip']
-            inventory[right_device]['interfaces'][right_interface]['local_ip'] = inventory[right_device]['tunnel_ip']
-            inventory[right_device]['interfaces'][right_interface]['remote_ip'] = inventory[left_device]['tunnel_ip']
-        elif right_device == "NOTHING":
-            inventory[left_device]['interfaces'][left_interface]['local_ip'] = "127.0.0.1"
-            inventory[left_device]['interfaces'][left_interface]['remote_ip'] = "127.0.0.1"
 
 
 def clean_datastructure(devices):
@@ -1398,6 +1284,10 @@ def main():
     print(styles.BLUE + "           originally written by Eric Pulvino")
 
     inventory = parse_topology(cli_args)
+    inventory = check_pxe(inventory, cli_args)
+
+    if cli_args.create_mgmt_device:
+        inventory = build_mgmt_network(inventory, cli_args)
 
     devices = populate_data_structures(inventory)
 

@@ -207,6 +207,18 @@ def graphviz_edge_to_tuple(edge):
             left[attribute] = value
             right[attribute] = value
 
+    # If the user supplied a MAC remove the ":", "." and whitespace
+    # Actual validation will happen in validate_macs() as part of mac_fetch()
+    if left["mac"] is not None:
+        temp = left["mac"].replace(":", "")
+        temp = temp.replace(".", "")
+        left["mac"] = temp.strip().lower()
+
+    if right["mac"] is not None:
+        temp = right["mac"].replace(":", "")
+        temp = temp.replace(".", "")
+        right["mac"] = temp.strip().lower()
+
     return (left, right)
 
 
@@ -231,6 +243,31 @@ def remove_interface_slash(edge):
     return edge
 
 
+def validate_mac(mac):
+    if len(mac) != 12:
+        return False
+
+    try:
+        int(mac, 16)
+
+    except Exception:
+        return False
+
+    # Broadcast
+    if mac == "ffffffffffff":
+        return False
+
+    # Invalid
+    if mac == "000000000000":
+        return False
+
+    # Multicast
+    if mac[:6] == "01005e":
+        return False
+
+    return True
+
+
 def mac_fetch(edge, inventory, cli_args):
     """Provides a unique mac address.
 
@@ -244,15 +281,31 @@ def mac_fetch(edge, inventory, cli_args):
     starting_mac = "443839000000"
 
     for side in edge:
-        # if the user did not define a mac, make one up.
-        # This will skip some MACs if the user defines any MACs
-        # but that's easier than keeping a global counter
-        if side["mac"] is None:
+
+        if side["mac"] is not None:
+            # Validate the user provided MAC address
+            if not validate_mac(side["mac"]):
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR -- Device " + side["hostname"] + " has an invalid MAC " + side["mac"] +
+                      styles.ENDC)
+                exit(1)
+
+            inventory["macs"].add(side["mac"])
+
+        else:
+            # if the user did not define a mac, make one up.
+            # This will skip some MACs if the user defines any MACs
+            # but that's easier than keeping a global counter
             mac_offset = len(inventory["macs"])
-            candidate_mac = ("%x" % (int(starting_mac, 16) + 1)).lower()
+            candidate_mac = ("%x" % (int(starting_mac, 16) + mac_offset)).lower()
+            mac_assigned = False
 
-            while candidate_mac not in inventory["macs"]:
+            if candidate_mac not in inventory["macs"]:
+                inventory["macs"].add(candidate_mac)
+                side["mac"] = candidate_mac
+                mac_assigned = True
 
+            while not mac_assigned:
                 if cli_args.verbose:
                     print(styles.WARNING + styles.BOLD +
                           "    WARNING: MF MAC Address Collision -- tried to use " +
@@ -265,12 +318,7 @@ def mac_fetch(edge, inventory, cli_args):
                 if candidate_mac not in inventory["macs"]:
                     inventory["macs"].add(candidate_mac)
                     side["mac"] = candidate_mac
-
-            print side
-
-        # track the user provided mac
-        else:
-            inventory["mac"].add(side["mac"])
+                    mac_assigned = True
 
         if cli_args.verbose:
             print("    Fetched new MAC ADDRESS: \"%s\"" % side["mac"])

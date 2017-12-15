@@ -18,7 +18,7 @@ def test_left_mac_attribute():
     edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp5\"")
     edge.obj_dict["attributes"]["left_mac"] = "00:03:00:11:11:01"
 
-    result = ({"hostname": "leaf01", "interface": "swp51", "mac": "00:03:00:11:11:01"},
+    result = ({"hostname": "leaf01", "interface": "swp51", "mac": "000300111101"},
               {"hostname": "spine01", "interface": "swp5", "mac": None})
 
     assert tc.graphviz_edge_to_tuple(edge) == result
@@ -30,7 +30,7 @@ def test_right_mac_attribute():
     edge.obj_dict["attributes"]["right_mac"] = "00:03:00:11:11:01"
 
     result = ({"hostname": "leaf01", "interface": "swp51", "mac": None},
-              {"hostname": "spine01", "interface": "swp5", "mac": "00:03:00:11:11:01"})
+              {"hostname": "spine01", "interface": "swp5", "mac": "000300111101"})
 
     assert tc.graphviz_edge_to_tuple(edge) == result
 

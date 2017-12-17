@@ -20,8 +20,6 @@ import ipaddress
 #
 version = "4.6.5"
 
-# pp = pprint.PrettyPrinter(depth=6)
-
 
 class styles:
     # Use these for text colors
@@ -288,7 +286,6 @@ def mac_fetch(edge, inventory, cli_args):
                 print(styles.FAIL + styles.BOLD +
                       " ### ERROR -- Device " + side["hostname"] + " has an invalid MAC " + side["mac"] +
                       styles.ENDC)
-                exit(1)
 
             inventory["macs"].add(side["mac"])
 
@@ -327,27 +324,39 @@ def mac_fetch(edge, inventory, cli_args):
 
 
 def add_link(edge, inventory, cli_args):
-    """Adds a link to the inventory
+    """Adds a link to the inventory.
+    A link for virtualbox is a string like "net1" that joins the two sides together
+    For libvirt, a link is corresponding source and destination ports
     """
     #### TODO: ADD SUPPORT FOR "NOTHING" LINKS
+
+    first_edge_ports = ()
+
     for side in edge:
+
         if side["interface"] in inventory[side["hostname"]]["interfaces"]:
             print(styles.FAIL + styles.BOLD + " ### ERROR -- Interface " + side["interface"] +
                   " Already used on device: " + side["hostname"] + styles.ENDC)
             exit(1)
+
         else:
             inventory[side["hostname"]]["interfaces"] = {side["interface"]: {"mac": side["mac"]}}
 
+            linkcount = inventory.setdefault("linkcount", 0)
+
             # This code is very suspect.
             if cli_args.provider == "virtualbox":
-                if "network" in inventory[side["hostname"]]["interfaces"][side["interface"]]:
-                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = "net" + len(inventory[side["hostname"]]["interfaces"])
+                inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = "net" + str(linkcount)
+
+                if first_edge_ports:
+                    first_edge_ports = ()
+                    inventory["linkcount"] += 1
                 else:
-                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = "net1"
+                    first_edge_ports = (0, 0)  # Set to any value to indicate we've seen the first edge
 
             elif cli_args.provider == "libvirt":
-                PortA = str(cli_args.start_port + 1)
-                PortB = str(cli_args.start_port + cli_args.port_gap + 1)
+                PortA = str(cli_args.start_port + linkcount)
+                PortB = str(cli_args.start_port + cli_args.port_gap + linkcount)
 
                 if int(PortA) > int(cli_args.start_port + cli_args.port_gap):
                     print(styles.FAIL + styles.BOLD +
@@ -356,8 +365,16 @@ def add_link(edge, inventory, cli_args):
                           styles.ENDC)
 
                     exit(1)
-                inventory[side["hostname"]]["interfaces"][side["interface"]]["network"]["local_port"] = PortA
-                inventory[side["hostname"]]["interfaces"][side["interface"]]["network"]["remote_port"] = PortB
+
+                # If we are on the second edge, we need to swap the ports from the first edge,
+                # Not create new ones.
+                if first_edge_ports:
+                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = {"port": {"local": first_edge_ports[1], "remote": first_edge_ports[0]}}
+                    first_edge_ports = ()
+                    inventory["linkcount"] += 1
+                else:
+                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = {"port": {"local": PortA, "remote": PortB}}
+                    first_edge_ports = (PortA, PortB)
 
     return inventory
 
@@ -409,6 +426,7 @@ def parse_nodes(nodes, cli_args):
             if cli_args.verbose:
                 print(attribute + " = " + node.get(attribute))
 
+            # TODO: This seems to make the OS lowercase, which is a problem
             inventory[node_name][attribute] = node.get(attribute).strip("\"").lower()
 
         # If "config" is defined and the file can't be found
@@ -416,8 +434,8 @@ def parse_nodes(nodes, cli_args):
         if "config" in inventory[node_name]:
             if not os.path.isfile(inventory[node_name]["config"]):
                 print(styles.WARNING + styles.BOLD +
-                      "    WARNING: Node \"" + node_name + "\" \
-                      Config file for device does not exist" + styles.ENDC)
+                      "    WARNING: Node \"" + node_name +
+                      " config file " + inventory[node_name]["config"] + " does not exist" + styles.ENDC)
 
         # some box images are know to not work with libvirt
         # prevent the user from using them
@@ -452,12 +470,12 @@ def parse_edges(edges, inventory, cli_args):
 
         edge = remove_interface_slash(graphviz_edge_to_tuple(graphviz_edge))
 
-        inventory, edge = mac_fetch(edge, inventory)
+        inventory, edge = mac_fetch(edge, inventory, cli_args)
 
         inventory = add_link(edge, inventory, cli_args)
 
         # Adds link to inventory datastructure
-        inventory = add_link(edge, inventory, cli_args)
+        #inventory = add_link(edge, inventory, cli_args)
 
 
 def parse_arguments():

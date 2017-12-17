@@ -54,10 +54,20 @@ class Test_first_mac:
         self.edge2 = ({"hostname": "leaf03", "interface": "swp49", "mac": "443839000003"},
                       {"hostname": "leaf04", "interface": "swp49", "mac": "443839000004"})
 
+        self.edge3 = ({"hostname": "leaf01", "interface": "swp50", "mac": "443839000005"},
+                      {"hostname": "leaf02", "interface": "swp50", "mac": "443839000006"})
+
+        self.edge4 = ({"hostname": "leaf03", "interface": "swp50", "mac": "443839000007"},
+                      {"hostname": "leaf04", "interface": "swp50", "mac": "443839000008"})
+
         self.inventory["macs"].add("443839000001")
         self.inventory["macs"].add("443839000002")
         self.inventory["macs"].add("443839000003")
         self.inventory["macs"].add("443839000004")
+        self.inventory["macs"].add("443839000005")
+        self.inventory["macs"].add("443839000006")
+        self.inventory["macs"].add("443839000007")
+        self.inventory["macs"].add("443839000008")
 
     def test_vobx_add_one_edge(self):
         """Test adding a single edge to the inventory with vbox
@@ -226,3 +236,19 @@ class Test_first_mac:
         result_inventory = tc.add_link(self.edge1, self.inventory, cli)
 
         tc.add_link(self.edge1, result_inventory, cli)
+
+    @raises(SystemExit)
+    def test_bad_libvirt_offset(self):
+        """Test a libvirt offset that can't be used
+        """
+        cli = CLI()
+        cli.provider = "libvirt"
+        cli.port_gap = "1"
+        cli.start_port = "1"
+
+        result_inventory = tc.add_link(self.edge1, self.inventory, cli)
+        result_inventory = tc.add_link(self.edge2, result_inventory, cli)
+        result_inventory = tc.add_link(self.edge3, result_inventory, cli)
+        result_inventory = tc.add_link(self.edge4, result_inventory, cli)
+
+        assert False

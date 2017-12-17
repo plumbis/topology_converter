@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import topology_converter as tc
-
-# Inventory structure to store macs.
-# contents do not need to match edges for these tests
+from nose.tools import raises
 
 
 # Create a CLI to set verbose to True/False
@@ -10,7 +8,7 @@ class CLI:
 
     def __init__(self):
 
-        self.verbose = False
+        self.verbose = True
 
 
 class Test_first_mac:
@@ -29,6 +27,9 @@ class Test_first_mac:
 
         self.edge2 = ({"hostname": "leaf03", "interface": "swp49", "mac": None},
                       {"hostname": "leaf04", "interface": "swp49", "mac": None})
+
+        self.edge3 = ({"hostname": "leaf05", "interface": "swp49", "mac": None},
+                      {"hostname": "leaf06", "interface": "swp49", "mac": None})
 
     def test_first_mac(self):
         """Test assigning macs to a single edge
@@ -102,5 +103,30 @@ class Test_first_mac:
         self.inventory, self.edge1 = tc.mac_fetch(self.edge1, self.inventory, cli)
 
         assert len(self.inventory["macs"]) == 2
+        assert "0000deadbeef" in self.inventory["macs"]
+        assert "0000ace0f00d" in self.inventory["macs"]
+
+    # @raises will catch non-zero exit code
+    @raises(SystemExit)
+    def test_invalid_mac(self):
+        """Test passing an invalid MAC
+        """
+        cli = CLI()
+        self.edge1[0]["mac"] = "0000zzzz0000"
+        self.edge1[1]["mac"] = "0000zzzz9999"
+        tc.mac_fetch(self.edge1, self.inventory, cli)
+
+    def test_two_user_one_auto_mac(self):
+        cli = CLI()
+
+        self.edge1[0]["mac"] = "0000deadbeef"
+        self.edge2[0]["mac"] = "0000ace0f00d"
+
+        self.inventory, self.edge1 = tc.mac_fetch(self.edge1, self.inventory, cli)
+        self.inventory, self.edge2 = tc.mac_fetch(self.edge2, self.inventory, cli)
+        self.inventory, self.edge3 = tc.mac_fetch(self.edge3, self.inventory, cli)
+
+        # 2 macs per edge
+        assert len(self.inventory["macs"]) == 6
         assert "0000deadbeef" in self.inventory["macs"]
         assert "0000ace0f00d" in self.inventory["macs"]

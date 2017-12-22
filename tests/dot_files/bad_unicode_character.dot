@@ -1,0 +1,7 @@
+graph vx {
+ "leaf01" [function="leaf" os="CumulusCommunity/cumulus-vx" version="3.4.3" memory="768" config="./helper_scripts/config_switch.sh" ]
+ "spine01" [function="spine" os="CumulusCommunity/cumulus-vx" version="3.4.3" memory="768" config="./helper_scripts/config_switch.sh" ]
+
+ "lɘaf01":"swp51" -- "spine01":"swp1"
+
+}

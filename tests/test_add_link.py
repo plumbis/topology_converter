@@ -15,7 +15,8 @@ class CLI:
         self.start_port = 8000
         self.port_gap = 1000
 
-class Test_first_mac:
+
+class Test_macs:
     def setup(self):
         self.inventory = {}
         self.inventory["macs"] = set()

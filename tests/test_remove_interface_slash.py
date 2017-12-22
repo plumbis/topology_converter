@@ -34,6 +34,7 @@ def test_left_slash():
 
     assert tc.remove_interface_slash(edge) == result
 
+
 def test_double_slash():
 
     edge = ({"hostname": "leaf01", "interface": "g0/0", "mac": None},

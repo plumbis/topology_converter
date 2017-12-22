@@ -422,7 +422,7 @@ def parse_nodes(nodes, cli_args):
             # jams the dict returned from get_functional_defaults() into the inventory[node] dict
             inventory[node_name].update(get_function_defaults(node.get("function")))
         else:
-            inventory[node_name]["function"] == "Unknown"
+            inventory[node_name].update({"function": "unknown"})
 
         # Add attributes to node inventory
         for attribute in node_attr_list:
@@ -565,7 +565,7 @@ def parse_arguments():
     #     print("Arguments:")
     #     print(args)
 
-    return parser.parse_args()
+    return parser
 
 
 def lint_topo_file(topology_file):
@@ -584,50 +584,57 @@ def lint_topo_file(topology_file):
     Keyword arguments:
     topology_file - an ASCII encoded text file representing the topology
     """
-    with open(topology_file, "r") as topo_file:
-        line_list = topo_file.readlines()
-        count = 0
+    try:
+        with open(topology_file, "r") as topo_file:
+            line_list = topo_file.readlines()
+            count = 0
 
-        for line in line_list:
-            count += 1
-            # Try to encode into ascii
-            # TODO: understand if UTF-8 support is possible
-            # seems supported by pydot
-            try:
-                line.encode('ascii', 'ignore')
+            for line in line_list:
+                count += 1
+                # Try to encode into ascii
+                # TODO: understand if UTF-8 support is possible
+                # seems supported by pydot
+                try:
+                    line.encode('ascii', 'ignore')
 
-            except UnicodeDecodeError:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
-                      Has hidden unicode characters in it which prevent it \
-                      from being converted to ASCII cleanly. Try manually \
-                      typing it instead of copying and pasting."
-                      % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
-                return False
-
-            if line.count("\"") % 2 == 1:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s: Has an odd \
-                      number of quotation characters \
-                      (\").\n     %s\n" % (count, line) + styles.ENDC)
-                return False
-
-            if line.count("'") % 2 == 1:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: Line %s: Has an odd \
-                      number of quotation characters \
-                      (').\n     %s\n" % (count, line) + styles.ENDC)
-                return False
-
-            if line.count(":") == 2:
-                if " -- " not in line:
+                except UnicodeDecodeError:
                     print(styles.FAIL + styles.BOLD +
-                          " ### ERROR: Line %s: Does not \
-                          contain the following sequence \" -- \" \
-                          to seperate the different ends of the link.\n     %s\n"
-                          % (count, line) + styles.ENDC)
-
+                          " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
+                          Has hidden unicode characters in it which prevent it \
+                          from being converted to ASCII cleanly. Try manually \
+                          typing it instead of copying and pasting."
+                          % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
                     return False
+
+                if line.count("\"") % 2 == 1:
+                    print(styles.FAIL + styles.BOLD +
+                          " ### ERROR: Line %s: Has an odd \
+                          number of quotation characters \
+                          (\").\n     %s\n" % (count, line) + styles.ENDC)
+                    return False
+
+                if line.count("'") % 2 == 1:
+                    print(styles.FAIL + styles.BOLD +
+                          " ### ERROR: Line %s: Has an odd \
+                          number of quotation characters \
+                          (').\n     %s\n" % (count, line) + styles.ENDC)
+                    return False
+
+                if line.count(":") == 2:
+                    if " -- " not in line:
+                        print(styles.FAIL + styles.BOLD +
+                              " ### ERROR: Line %s: Does not \
+                              contain the following sequence \" -- \" \
+                              to seperate the different ends of the link.\n     %s\n"
+                              % (count, line) + styles.ENDC)
+
+                        return False
+    except Exception:
+        print(styles.FAIL + styles.BOLD +
+              "Problem opening file, " + topology_file + " perhaps it doesn't exist?" +
+              styles.ENDC)
+        return False
+
     return True
 
 
@@ -1381,7 +1388,8 @@ def build_mgmt_network(inventory, cli_args):
 
 
 def main():
-    cli_args = parse_arguments()
+    cli = parse_arguments()
+    cli_args = cli.parse_args()
     # global mac_map
     print(styles.HEADER + "\n######################################")
     print(styles.HEADER + "          Topology Converter")

@@ -401,13 +401,14 @@ def parse_nodes(nodes, cli_args):
         # Strip quotes from the node name
         node_name = node.get_name().replace('"', '')
 
+        # validate the hostname
         if not check_hostname(node_name):
             exit(1)
 
         # track global mac assignment
         inventory["macs"] = set()
 
-        # If the node is in the inventory, then do nothing
+        # If the node is already in the inventory, then do nothing
         # else set the node defaults
         # {"hostname": {"interfaces": {}}}
         inventory.setdefault(node_name, {"interfaces": {}})
@@ -422,6 +423,8 @@ def parse_nodes(nodes, cli_args):
             # jams the dict returned from get_functional_defaults() into the inventory[node] dict
             inventory[node_name].update(get_function_defaults(node.get("function")))
         else:
+            # all the attributes are set to lowercase
+            # since this attribute is set early, manually keep it lowercase
             inventory[node_name].update({"function": "unknown"})
 
         # Add attributes to node inventory
@@ -430,7 +433,6 @@ def parse_nodes(nodes, cli_args):
             if cli_args.verbose:
                 print(attribute + " = " + node.get(attribute))
 
-            # TODO: This seems to make the OS lowercase, which is a problem
             inventory[node_name][attribute] = node.get(attribute).strip("\"").lower()
 
         # If "config" is defined and the file can't be found
@@ -479,8 +481,9 @@ def parse_edges(edges, inventory, cli_args):
         inventory = add_link(edge, inventory, cli_args)
 
         # Adds link to inventory datastructure
-        #inventory = add_link(edge, inventory, cli_args)
+        inventory = add_link(edge, inventory, cli_args)
 
+    return inventory
 
 def parse_arguments():
     """ Parse command line arguments, and return a dict of values."""
@@ -656,7 +659,11 @@ def parse_topology(cli_args):
     try:
         topology = pydotplus.graphviz.graph_from_dot_file(cli_args.topology_file)
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
+        # Two known ways to get here:
+        # 1.) The file changed or was deleted between lint_topo_file() and graphviz call
+        # 2.) lint topo file should be extended to handle missed failure.
+        # as a result this isn't in coverage
         print(styles.FAIL + styles.BOLD +
               " ### ERROR: Cannot parse the provided topology.dot \
               file (%s)\n     There is probably a syntax error \
@@ -671,7 +678,10 @@ def parse_topology(cli_args):
         nodes = topology.get_node_list()
         edges = topology.get_edge_list()
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
+        # Like the previous exception
+        # if this is hit, it's either a corner, like file change
+        # or we need to expand the linter
         print(e)
         print(styles.FAIL + styles.BOLD +
               " ### ERROR: There is a syntax error in your topology file \

@@ -1,0 +1,3 @@
+cd ~/git/topology_converter/
+source tc/bin/activate
+nosetests --with-coverage --cover-erase --cover-package=topology_converter --cover-html

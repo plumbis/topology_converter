@@ -16,6 +16,7 @@ def test_topo_files():
             yield lint_good_topos, "./tests/dot_files/" + file
 
         else:
+            print file
             yield lint_bad_topos, "./tests/dot_files/" + file
 
 

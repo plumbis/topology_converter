@@ -6,3 +6,5 @@ dhcp_mac_map
 cover/
 .coverage*
 tc/
+venv/
+.idea/

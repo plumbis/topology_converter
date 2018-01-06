@@ -15,6 +15,7 @@ class CLI:
 
 
 class Test_nodes:
+
     def setup(self):
         """Setup the environment based on the simple.dot file.
         Populate the "mac" value with an empty set
@@ -34,11 +35,13 @@ class Test_nodes:
         # Note: all attributes are passed through .lower()
         # watch case in tests
         leaf_attributes = {"interfaces": {}, "function": "leaf", "os": "cumuluscommunity/cumulus-vx", "version": "3.4.3", "memory": "768", "config": "./helper_scripts/config_switch.sh"}
-
+        spine_attributes = {"interfaces": {}, "function": "spine", "os": "cumuluscommunity/cumulus-vx", "version": "3.4.3", "memory": "768", "config": "./helper_scripts/config_switch.sh"}
+        
         self.expected_inventory["leaf01"] = leaf_attributes
         self.expected_inventory["leaf02"] = leaf_attributes
         self.expected_inventory["leaf03"] = leaf_attributes
         self.expected_inventory["leaf04"] = leaf_attributes
+        self.expected_inventory["spine01"] = spine_attributes
 
         pp = pprint.PrettyPrinter(indent=2)
         print "Expected_Inventory:"
@@ -46,6 +49,7 @@ class Test_nodes:
         print ""
         print "Result"
         pp.pprint(test_result)
+
         assert self.expected_inventory == test_result
 
     # @raises will catch non-zero exit code

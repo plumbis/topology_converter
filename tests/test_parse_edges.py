@@ -14,103 +14,251 @@ class CLI:
         self.provider = "virtualbox"
 
 
-class Test_nodes:
-    def setup(self):
-        """Setup the environment based on the simple.dot file.
-        Populate the "mac" value with an empty set
+class Test_edges:
+
+
+    def test_simple_edge_vbox(self):
+        """Test creating an inventory out of the simple topology
         """
+        pp = pprint.PrettyPrinter(indent=2)
+        cli = CLI()
         topology = dot.graphviz.graph_from_dot_file("tests/dot_files/simple.dot")
         self.edges = topology.get_edge_list()
-        self.expected_inventory = dict()
-        self.expected_inventory["macs"] = set()
+        self.nodes = topology.get_node_list()
 
-    def test_simple_node(self):
-        """Test that the simple.dot file is valid.
-        This should check memory, function, os, version and config
+        # parse_edges() expects parse_nodes() to have been called first
+        # it may be better to hand-build the output to test parse_edges
+        # but I want to test that the dependency works
+        node_inventory = tc.parse_nodes(self.nodes, cli)
+
+
+        test_result = tc.parse_edges(self.edges, node_inventory, cli)
+
         """
-        cli = CLI()
-        test_result = tc.parse_nodes(self.nodes, cli)
+         "leaf01":"swp51" -- "spine01":"swp1"
+         "leaf02":"swp51" -- "spine01":"swp2"
+         "leaf03":"swp51" -- "spine01":"swp3"
 
-        # Note: all attributes are passed through .lower()
-        # watch case in tests
-        leaf_attributes = {"interfaces": {}, "function": "leaf", "os": "cumuluscommunity/cumulus-vx", "version": "3.4.3", "memory": "768", "config": "./helper_scripts/config_switch.sh"}
+         "leaf01":"swp49" -- "leaf02":"swp49"
+         "leaf03":"swp49" -- "leaf04":"swp49"
+        """
+        # We don't test the MACs because we can't guarantee the order which the links parsed
+        # MACs are assigned first come, first serve. Without a known order, we don't know which mac
+        # will be assigned to which interface
 
-        self.expected_inventory["leaf01"] = leaf_attributes
-        self.expected_inventory["leaf02"] = leaf_attributes
-        self.expected_inventory["leaf03"] = leaf_attributes
-        self.expected_inventory["leaf04"] = leaf_attributes
+        assert test_result["leaf01"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp1"]["network"]
+        assert test_result["leaf02"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp2"]["network"]
+        assert test_result["leaf03"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp3"]["network"]
+        assert test_result["leaf01"]["interfaces"]["swp49"]["network"] == test_result["leaf02"]["interfaces"]["swp49"]["network"]
+        assert test_result["leaf03"]["interfaces"]["swp49"]["network"] == test_result["leaf04"]["interfaces"]["swp49"]["network"]
+        assert test_result["linkcount"] == 5
 
+
+    def test_simple_edge_libvirt(self):
+        """Test creating an inventory out of the simple topology
+        """
         pp = pprint.PrettyPrinter(indent=2)
-        print "Expected_Inventory:"
-        pp.pprint(self.expected_inventory)
-        print ""
-        print "Result"
-        pp.pprint(test_result)
-        assert self.expected_inventory == test_result
-
-    # @raises will catch non-zero exit code
-    @raises(SystemExit)
-    def test_bad_hostname(self):
-        """Test an incorrect hostname.
-        The hostname parsing is tested in test_check_hostname
-        We only need to test that it exits
-        """
         cli = CLI()
-        self.nodes[0].set_name("leaf.1")
-        tc.parse_nodes(self.nodes, cli)
+        cli.provider = "libvirt"
+        cli.port_gap = "1000"
+        cli.start_port = "1"
 
-    def test_no_function(self):
-        """Test a valid dot file but with no function defined
+        topology = dot.graphviz.graph_from_dot_file("tests/dot_files/simple.dot")
+        self.edges = topology.get_edge_list()
+        self.nodes = topology.get_node_list()
+
+        # parse_edges() expects parse_nodes() to have been called first
+        # it may be better to hand-build the output to test parse_edges
+        # but I want to test that the dependency works
+        node_inventory = tc.parse_nodes(self.nodes, cli)
+
+
+        test_result = tc.parse_edges(self.edges, node_inventory, cli)
+
         """
-        cli = CLI()
-        cli.verbose = True
-        topology = dot.graphviz.graph_from_dot_file("tests/dot_files/no_function.dot")
-        nodes = topology.get_node_list()
-        expected_inventory = dict()
-        expected_inventory["macs"] = set()
-        test_result = tc.parse_nodes(nodes, cli)
+         "leaf01":"swp51" -- "spine01":"swp1"
+         "leaf02":"swp51" -- "spine01":"swp2"
+         "leaf03":"swp51" -- "spine01":"swp3"
 
-        # Note: all attributes are passed through .lower()
-        # watch case in tests
-        leaf_attributes = {"interfaces": {}, "function": "unknown", "os": "cumuluscommunity/cumulus-vx", "version": "3.4.3", "memory": "768", "config": "./helper_scripts/config_switch.sh"}
+         "leaf01":"swp49" -- "leaf02":"swp49"
+         "leaf03":"swp49" -- "leaf04":"swp49"
+        """
+        # We don't test the MACs because we can't guarantee the order which the links parsed
+        # MACs are assigned first come, first serve. Without a known order, we don't know which mac
+        # will be assigned to which interface
 
-        self.expected_inventory["leaf01"] = leaf_attributes
-        self.expected_inventory["leaf02"] = leaf_attributes
-        self.expected_inventory["leaf03"] = leaf_attributes
-        self.expected_inventory["leaf04"] = leaf_attributes
+        assert test_result["leaf01"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp1"]["network"]["port"]["remote"]
+        assert test_result["leaf02"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp2"]["network"]["port"]["remote"]
+        assert test_result["leaf03"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp3"]["network"]["port"]["remote"]
+        assert test_result["leaf01"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["leaf02"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["leaf03"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["leaf04"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["linkcount"] == 5
 
+    def test_reference_topology_vbox(self):
+        """Test creating an inventory out of the reference topology
+        """
         pp = pprint.PrettyPrinter(indent=2)
-        print "Expected_Inventory:"
-        pp.pprint(self.expected_inventory)
-        print ""
-        print "Result"
-        pp.pprint(test_result)
-        assert self.expected_inventory == test_result
+        cli = CLI()
+        topology = dot.graphviz.graph_from_dot_file("tests/dot_files/reference_topology_3_4_3.dot")
+        self.edges = topology.get_edge_list()
+        self.nodes = topology.get_node_list()
+        # parse_edges() expects parse_nodes() to have been called first
+        # it may be better to hand-build the output to test parse_edges
+        # but I want to test that the dependency works
+        node_inventory = tc.parse_nodes(self.nodes, cli)
 
-    # @raises(SystemExit)
-    # def test_bad_libvirt_images(self):
-    #     """Test using a known invalid box image.
-    #     Actual parsing of the box images is done by test_supported_libvirt_os
-    #     This just tests that it exits
-    #     """
-    #     cli = CLI()
-    #     cli.provider = "libvirt"
-    #     topology = dot.graphviz.graph_from_dot_file("tests/dot_files/bento_box.dot")
-    #     nodes = topology.get_node_list()
-    #     expected_inventory = dict()
-    #     expected_inventory["macs"] = set()
-    #     tc.parse_nodes(nodes, cli)
 
-    # @raises(SystemExit)
-    # def test_bad_attribute(self):
-    #     """Test passing a bad attribute, like negative memory value.
-    #     Actual attribute parsing is tested in test_valid_attributes
-    #     This only tests exiting
-    #     """
-    #     cli = CLI()
-    #     cli.provider = "libvirt"
-    #     topology = dot.graphviz.graph_from_dot_file("tests/dot_files/incorrect_memory.dot")
-    #     nodes = topology.get_node_list()
-    #     expected_inventory = dict()
-    #     expected_inventory["macs"] = set()
-    #     tc.parse_nodes(nodes, cli)
+        test_result = tc.parse_edges(self.edges, node_inventory, cli)
+
+        # We don't test the MACs because we can't guarantee the order which the links parsed
+        # MACs are assigned first come, first serve. Without a known order, we don't know which mac
+        # will be assigned to which interface
+
+        assert test_result["leaf01"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp1"]["network"]
+        assert test_result["leaf01"]["interfaces"]["swp52"]["network"] == test_result["spine02"]["interfaces"]["swp1"]["network"]
+        assert test_result["leaf01"]["interfaces"]["swp49"]["network"] == test_result["leaf02"]["interfaces"]["swp49"]["network"]
+        assert test_result["leaf01"]["interfaces"]["swp50"]["network"] == test_result["leaf02"]["interfaces"]["swp50"]["network"]
+        assert test_result["leaf01"]["interfaces"]["swp1"]["network"] == test_result["server01"]["interfaces"]["eth1"]["network"]
+        assert test_result["leaf01"]["interfaces"]["swp2"]["network"] == test_result["server02"]["interfaces"]["eth1"]["network"]
+
+        assert test_result["leaf02"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp2"]["network"]
+        assert test_result["leaf02"]["interfaces"]["swp52"]["network"] == test_result["spine02"]["interfaces"]["swp2"]["network"]
+        assert test_result["leaf02"]["interfaces"]["swp49"]["network"] == test_result["leaf01"]["interfaces"]["swp49"]["network"]
+        assert test_result["leaf02"]["interfaces"]["swp50"]["network"] == test_result["leaf01"]["interfaces"]["swp50"]["network"]
+        assert test_result["leaf02"]["interfaces"]["swp1"]["network"] == test_result["server01"]["interfaces"]["eth2"]["network"]
+        assert test_result["leaf02"]["interfaces"]["swp2"]["network"] == test_result["server02"]["interfaces"]["eth2"]["network"]
+
+        assert test_result["leaf03"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp3"]["network"]
+        assert test_result["leaf03"]["interfaces"]["swp52"]["network"] == test_result["spine02"]["interfaces"]["swp3"]["network"]
+        assert test_result["leaf03"]["interfaces"]["swp49"]["network"] == test_result["leaf04"]["interfaces"]["swp49"]["network"]
+        assert test_result["leaf03"]["interfaces"]["swp50"]["network"] == test_result["leaf04"]["interfaces"]["swp50"]["network"]
+        assert test_result["leaf03"]["interfaces"]["swp1"]["network"] == test_result["server03"]["interfaces"]["eth1"]["network"]
+        assert test_result["leaf03"]["interfaces"]["swp2"]["network"] == test_result["server04"]["interfaces"]["eth1"]["network"]
+
+        assert test_result["leaf04"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp4"]["network"]
+        assert test_result["leaf04"]["interfaces"]["swp52"]["network"] == test_result["spine02"]["interfaces"]["swp4"]["network"]
+        assert test_result["leaf04"]["interfaces"]["swp49"]["network"] == test_result["leaf03"]["interfaces"]["swp49"]["network"]
+        assert test_result["leaf04"]["interfaces"]["swp50"]["network"] == test_result["leaf03"]["interfaces"]["swp50"]["network"]
+        assert test_result["leaf04"]["interfaces"]["swp1"]["network"] == test_result["server03"]["interfaces"]["eth2"]["network"]
+        assert test_result["leaf04"]["interfaces"]["swp2"]["network"] == test_result["server04"]["interfaces"]["eth2"]["network"]
+
+        assert test_result["exit01"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp30"]["network"]
+        assert test_result["exit01"]["interfaces"]["swp52"]["network"] == test_result["spine02"]["interfaces"]["swp30"]["network"]
+        assert test_result["exit01"]["interfaces"]["swp49"]["network"] == test_result["exit02"]["interfaces"]["swp49"]["network"]
+        assert test_result["exit01"]["interfaces"]["swp50"]["network"] == test_result["exit02"]["interfaces"]["swp50"]["network"]
+        assert test_result["exit01"]["interfaces"]["swp44"]["network"] == test_result["internet"]["interfaces"]["swp1"]["network"]
+        assert test_result["exit01"]["interfaces"]["swp1"]["network"] == test_result["edge01"]["interfaces"]["eth1"]["network"]
+
+        assert test_result["exit02"]["interfaces"]["swp51"]["network"] == test_result["spine01"]["interfaces"]["swp29"]["network"]
+        assert test_result["exit02"]["interfaces"]["swp52"]["network"] == test_result["spine02"]["interfaces"]["swp29"]["network"]
+        assert test_result["exit02"]["interfaces"]["swp49"]["network"] == test_result["exit01"]["interfaces"]["swp49"]["network"]
+        assert test_result["exit02"]["interfaces"]["swp50"]["network"] == test_result["exit01"]["interfaces"]["swp50"]["network"]
+        assert test_result["exit02"]["interfaces"]["swp44"]["network"] == test_result["internet"]["interfaces"]["swp2"]["network"]
+        assert test_result["exit02"]["interfaces"]["swp1"]["network"] == test_result["edge01"]["interfaces"]["eth2"]["network"]
+
+        assert test_result["spine01"]["interfaces"]["swp31"]["network"] == test_result["spine02"]["interfaces"]["swp31"]["network"]
+        assert test_result["spine01"]["interfaces"]["swp32"]["network"] == test_result["spine02"]["interfaces"]["swp32"]["network"]
+
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp1"]["network"] == test_result["oob-mgmt-server"]["interfaces"]["eth1"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp2"]["network"] == test_result["server01"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp3"]["network"] == test_result["server02"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp4"]["network"] == test_result["server03"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp5"]["network"] == test_result["server04"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp6"]["network"] == test_result["leaf01"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp7"]["network"] == test_result["leaf02"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp8"]["network"] == test_result["leaf03"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp9"]["network"] == test_result["leaf04"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp10"]["network"] == test_result["spine01"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp11"]["network"] == test_result["spine02"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp12"]["network"] == test_result["exit01"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp13"]["network"] == test_result["exit02"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp14"]["network"] == test_result["edge01"]["interfaces"]["eth0"]["network"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp15"]["network"] == test_result["internet"]["interfaces"]["eth0"]["network"]
+
+        assert test_result["linkcount"] == 59
+
+    def test_reference_topology_libvirt(self):
+        """Test creating an inventory out of the reference topology
+        """
+        pp = pprint.PrettyPrinter(indent=2)
+        cli = CLI()
+        cli.provider = "libvirt"
+        cli.port_gap = "1000"
+        cli.start_port = "1"
+        topology = dot.graphviz.graph_from_dot_file("tests/dot_files/reference_topology_3_4_3.dot")
+        self.edges = topology.get_edge_list()
+        self.nodes = topology.get_node_list()
+        # parse_edges() expects parse_nodes() to have been called first
+        # it may be better to hand-build the output to test parse_edges
+        # but I want to test that the dependency works
+        node_inventory = tc.parse_nodes(self.nodes, cli)
+
+
+        test_result = tc.parse_edges(self.edges, node_inventory, cli)
+
+        # We don't test the MACs because we can't guarantee the order which the links parsed
+        # MACs are assigned first come, first serve. Without a known order, we don't know which mac
+        # will be assigned to which interface
+
+        assert test_result["leaf01"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp1"]["network"]["port"]["remote"]
+        assert test_result["leaf01"]["interfaces"]["swp52"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp1"]["network"]["port"]["remote"]
+        assert test_result["leaf01"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["leaf02"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["leaf01"]["interfaces"]["swp50"]["network"]["port"]["local"] == test_result["leaf02"]["interfaces"]["swp50"]["network"]["port"]["remote"]
+        assert test_result["leaf01"]["interfaces"]["swp1"]["network"]["port"]["local"] == test_result["server01"]["interfaces"]["eth1"]["network"]["port"]["remote"]
+        assert test_result["leaf01"]["interfaces"]["swp2"]["network"]["port"]["local"] == test_result["server02"]["interfaces"]["eth1"]["network"]["port"]["remote"]
+
+        assert test_result["leaf02"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp2"]["network"]["port"]["remote"]
+        assert test_result["leaf02"]["interfaces"]["swp52"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp2"]["network"]["port"]["remote"]
+        assert test_result["leaf02"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["leaf01"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["leaf02"]["interfaces"]["swp50"]["network"]["port"]["local"] == test_result["leaf01"]["interfaces"]["swp50"]["network"]["port"]["remote"]
+        assert test_result["leaf02"]["interfaces"]["swp1"]["network"]["port"]["local"] == test_result["server01"]["interfaces"]["eth2"]["network"]["port"]["remote"]
+        assert test_result["leaf02"]["interfaces"]["swp2"]["network"]["port"]["local"] == test_result["server02"]["interfaces"]["eth2"]["network"]["port"]["remote"]
+
+        assert test_result["leaf03"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp3"]["network"]["port"]["remote"]
+        assert test_result["leaf03"]["interfaces"]["swp52"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp3"]["network"]["port"]["remote"]
+        assert test_result["leaf03"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["leaf04"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["leaf03"]["interfaces"]["swp50"]["network"]["port"]["local"] == test_result["leaf04"]["interfaces"]["swp50"]["network"]["port"]["remote"]
+        assert test_result["leaf03"]["interfaces"]["swp1"]["network"]["port"]["local"] == test_result["server03"]["interfaces"]["eth1"]["network"]["port"]["remote"]
+        assert test_result["leaf03"]["interfaces"]["swp2"]["network"]["port"]["local"] == test_result["server04"]["interfaces"]["eth1"]["network"]["port"]["remote"]
+
+        assert test_result["leaf04"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp4"]["network"]["port"]["remote"]
+        assert test_result["leaf04"]["interfaces"]["swp52"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp4"]["network"]["port"]["remote"]
+        assert test_result["leaf04"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["leaf03"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["leaf04"]["interfaces"]["swp50"]["network"]["port"]["local"] == test_result["leaf03"]["interfaces"]["swp50"]["network"]["port"]["remote"]
+        assert test_result["leaf04"]["interfaces"]["swp1"]["network"]["port"]["local"] == test_result["server03"]["interfaces"]["eth2"]["network"]["port"]["remote"]
+        assert test_result["leaf04"]["interfaces"]["swp2"]["network"]["port"]["local"] == test_result["server04"]["interfaces"]["eth2"]["network"]["port"]["remote"]
+
+        assert test_result["exit01"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp30"]["network"]["port"]["remote"]
+        assert test_result["exit01"]["interfaces"]["swp52"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp30"]["network"]["port"]["remote"]
+        assert test_result["exit01"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["exit02"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["exit01"]["interfaces"]["swp50"]["network"]["port"]["local"] == test_result["exit02"]["interfaces"]["swp50"]["network"]["port"]["remote"]
+        assert test_result["exit01"]["interfaces"]["swp44"]["network"]["port"]["local"] == test_result["internet"]["interfaces"]["swp1"]["network"]["port"]["remote"]
+        assert test_result["exit01"]["interfaces"]["swp1"]["network"]["port"]["local"] == test_result["edge01"]["interfaces"]["eth1"]["network"]["port"]["remote"]
+
+        assert test_result["exit02"]["interfaces"]["swp51"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["swp29"]["network"]["port"]["remote"]
+        assert test_result["exit02"]["interfaces"]["swp52"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp29"]["network"]["port"]["remote"]
+        assert test_result["exit02"]["interfaces"]["swp49"]["network"]["port"]["local"] == test_result["exit01"]["interfaces"]["swp49"]["network"]["port"]["remote"]
+        assert test_result["exit02"]["interfaces"]["swp50"]["network"]["port"]["local"] == test_result["exit01"]["interfaces"]["swp50"]["network"]["port"]["remote"]
+        assert test_result["exit02"]["interfaces"]["swp44"]["network"]["port"]["local"] == test_result["internet"]["interfaces"]["swp2"]["network"]["port"]["remote"]
+        assert test_result["exit02"]["interfaces"]["swp1"]["network"]["port"]["local"] == test_result["edge01"]["interfaces"]["eth2"]["network"]["port"]["remote"]
+
+        assert test_result["spine01"]["interfaces"]["swp31"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp31"]["network"]["port"]["remote"]
+        assert test_result["spine01"]["interfaces"]["swp32"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["swp32"]["network"]["port"]["remote"]
+
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp1"]["network"]["port"]["local"] == test_result["oob-mgmt-server"]["interfaces"]["eth1"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp2"]["network"]["port"]["local"] == test_result["server01"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp3"]["network"]["port"]["local"] == test_result["server02"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp4"]["network"]["port"]["local"] == test_result["server03"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp5"]["network"]["port"]["local"] == test_result["server04"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp6"]["network"]["port"]["local"] == test_result["leaf01"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp7"]["network"]["port"]["local"] == test_result["leaf02"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp8"]["network"]["port"]["local"] == test_result["leaf03"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp9"]["network"]["port"]["local"] == test_result["leaf04"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp10"]["network"]["port"]["local"] == test_result["spine01"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp11"]["network"]["port"]["local"] == test_result["spine02"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp12"]["network"]["port"]["local"] == test_result["exit01"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp13"]["network"]["port"]["local"] == test_result["exit02"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp14"]["network"]["port"]["local"] == test_result["edge01"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+        assert test_result["oob-mgmt-switch"]["interfaces"]["swp15"]["network"]["port"]["local"] == test_result["internet"]["interfaces"]["eth0"]["network"]["port"]["remote"]
+
+        assert test_result["linkcount"] == 59

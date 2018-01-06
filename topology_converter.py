@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 import os
 import re
-import sys
-import time
-import pprint
-import jinja2
 import argparse
 import pydotplus
-import ipaddress
-
+# import ipaddress
+# import sys
+# import time
+# import pprint
+# import jinja2
 #
 #    Topology Converter
 #       converts a given topology.dot file to a Vagrantfile
@@ -57,7 +56,7 @@ def check_hostname(hostname):
     if not re.compile('[A-Za-z0-9]').match(hostname[0]):
         print(styles.FAIL + styles.BOLD +
               " ### ERROR: Node name can only start with letters or numbers " +
-              "'%s' is not valid!\n" % (hostname) + styles.ENDC)
+              "'%s' is not valid!\n" % hostname + styles.ENDC)
 
         return False
 
@@ -65,7 +64,7 @@ def check_hostname(hostname):
     if not re.compile('[A-Za-z0-9]').match(hostname[-1]):
         print(styles.FAIL + styles.BOLD +
               " ### ERROR: Node name can only end with letters or numbers " +
-              "'%s' is not valid!\n" % (hostname) + styles.ENDC)
+              "'%s' is not valid!\n" % hostname + styles.ENDC)
 
         return False
 
@@ -73,14 +72,14 @@ def check_hostname(hostname):
     if not re.compile('^[A-Za-z0-9\-]+$').match(hostname):
         print(styles.FAIL + styles.BOLD +
               " ### ERROR: Node name can only contain letters numbers and dash(-) " +
-              "'%s' is not valid!\n" % (hostname) + styles.ENDC)
+              "'%s' is not valid!\n" % hostname + styles.ENDC)
 
         return False
 
     return True
 
 
-def get_function_defaults(function):
+def get_function_defaults(device_type):
     """Returns default OS, memory, provisioning script for device types
 
 
@@ -90,7 +89,7 @@ def get_function_defaults(function):
     Returns dict in the form:
     {"os": "<vagrant box>", "memory": "<memory value>", "config": "<script location>"}
     """
-    parsed_function = function.strip("\"").lower()
+    parsed_function = device_type.strip("\"").lower()
 
     host_os = "yk0/ubuntu-xenial"
     cumulus_vx = "CumulusCommunity/cumulus-vx"
@@ -330,10 +329,15 @@ def add_link(edge, inventory, cli_args):
     """Adds a link to the inventory.
     A link for virtualbox is a string like "net1" that joins the two sides together
     For libvirt, a link is corresponding source and destination ports
+
+    The edge attribute is a tuple, returned by graphviz_edge_to_tuple, *not* a Graphviz Edge object
     """
     # "NOTHING" links are not supported.
     # May not be needed, needs further investigation on how to build dummy eth0 interface
 
+    # pp = pprint.PrettyPrinter(indent=2)
+    # pp.pprint(inventory)
+    # print ""
     first_edge_ports = ()
 
     for side in edge:
@@ -344,7 +348,7 @@ def add_link(edge, inventory, cli_args):
             exit(1)
 
         else:
-            inventory[side["hostname"]]["interfaces"] = {side["interface"]: {"mac": side["mac"]}}
+            inventory[side["hostname"]]["interfaces"].update({side["interface"]: {"mac": side["mac"]}})
 
             linkcount = inventory.setdefault("linkcount", 0)
 
@@ -400,7 +404,7 @@ def parse_nodes(nodes, cli_args):
 
         # Strip quotes from the node name
         node_name = node.get_name().replace('"', '')
-
+        print node_name
         # validate the hostname
         if not check_hostname(node_name):
             exit(1)
@@ -472,6 +476,8 @@ def parse_edges(edges, inventory, cli_args):
 
     # Add All the Edges to Inventory
 
+    # an edge looks like:
+    # ({'interface': 'swp49', 'mac': None, 'hostname': 'leaf01'}, {'interface': 'swp49', 'mac': None, 'hostname': 'leaf02'})
     for graphviz_edge in edges:
 
         edge = remove_interface_slash(graphviz_edge_to_tuple(graphviz_edge))
@@ -480,8 +486,6 @@ def parse_edges(edges, inventory, cli_args):
 
         inventory = add_link(edge, inventory, cli_args)
 
-        # Adds link to inventory datastructure
-        inventory = add_link(edge, inventory, cli_args)
 
     return inventory
 

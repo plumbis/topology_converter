@@ -350,7 +350,6 @@ class Inventory:
         for side in [network_edge.left_side, network_edge.right_side]:
 
             # Check if the interface has already been used.
-            print self.get_node_by_name(side.hostname)
             if self.get_node_by_name(side.hostname).get_interface(side.interface_name) is not None:
                 print(styles.FAIL + styles.BOLD + " ### ERROR -- Interface " + side.interface_name +
                       " Already used on device: " + side.hostname + styles.ENDC)

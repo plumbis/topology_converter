@@ -276,7 +276,7 @@ class TestNetworkInterface:
         self.inventory.node_collection["leaf02"]
 
 
-    def test_add_parsed_topology(self):
+    def test_add_parsed_topology_virtualbox(self):
         """Test parsing a Graphviz topology file.
         Uses tests/dot_files/simple.dot as the test file
         """
@@ -284,7 +284,7 @@ class TestNetworkInterface:
         parser = tc.ParseGraphvizTopology()
         parser.parse_topology("./tests/dot_files/simple.dot")
 
-        self.inventory.provider == "libvirt"
+        self.inventory.provider = "virtualbox"
 
         self.inventory.add_parsed_topology(parser)
 
@@ -349,4 +349,102 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].mac is not None
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].network == \
                self.inventory.node_collection["leaf03"].interfaces["swp49"] .network
+
+    def test_add_parsed_topology_libvirt(self):
+        """Test parsing a Graphviz topology file.
+        Uses tests/dot_files/simple.dot as the test file
+        """
+
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+
+        self.inventory.provider = "libvirt"
+
+        self.inventory.add_parsed_topology(parser)
+
+        assert len(self.inventory.node_collection) == 5
+        assert "leaf01" in self.inventory.node_collection
+        assert "leaf02" in self.inventory.node_collection
+        assert "leaf03" in self.inventory.node_collection
+        assert "leaf04" in self.inventory.node_collection
+        assert "spine01" in self.inventory.node_collection
+
+        assert self.inventory.node_collection["leaf01"].function == "leaf"
+        assert self.inventory.node_collection["leaf01"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf01"].memory == "768"
+        assert self.inventory.node_collection["leaf01"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf01"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf01"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf01"].interfaces) == 2
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].hostname == "leaf01"
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].mac is not None
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].local_port  is not None
+        assert self.inventory.node_collection["spine01"].interfaces["swp1"].remote_port is not None
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].remote_port  is not None
+        assert self.inventory.node_collection["spine01"].interfaces["swp1"].local_port is not None
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].local_port == \
+               self.inventory.node_collection["spine01"].interfaces["swp1"].remote_port
+
+        assert self.inventory.node_collection["leaf01"].interfaces["swp49"].local_port is not None
+        assert self.inventory.node_collection["leaf01"].interfaces["swp49"].remote_port is not None
+        assert self.inventory.node_collection["leaf02"].interfaces["swp49"].local_port is not None
+        assert self.inventory.node_collection["leaf02"].interfaces["swp49"].remote_port is not None
+
+        assert self.inventory.node_collection["leaf01"].interfaces["swp49"].local_port == \
+               self.inventory.node_collection["leaf02"].interfaces["swp49"].remote_port
+
+        assert self.inventory.node_collection["leaf02"].function == "leaf"
+        assert self.inventory.node_collection["leaf02"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf02"].memory == "768"
+        assert self.inventory.node_collection["leaf02"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf02"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf02"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf02"].interfaces) == 2
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].hostname == "leaf02"
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].mac is not None
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].local_port  is not None
+        assert self.inventory.node_collection["spine01"].interfaces["swp2"].remote_port is not None
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].remote_port  is not None
+        assert self.inventory.node_collection["spine01"].interfaces["swp2"].local_port is not None
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].local_port == \
+               self.inventory.node_collection["spine01"].interfaces["swp2"].remote_port
+
+        assert self.inventory.node_collection["leaf03"].function == "leaf"
+        assert self.inventory.node_collection["leaf03"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf03"].memory == "768"
+        assert self.inventory.node_collection["leaf03"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf03"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf03"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf03"].interfaces) == 2
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].hostname == "leaf03"
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].mac is not None
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].local_port  is not None
+        assert self.inventory.node_collection["spine01"].interfaces["swp3"].remote_port is not None
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].remote_port  is not None
+        assert self.inventory.node_collection["spine01"].interfaces["swp3"].local_port is not None
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].local_port == \
+               self.inventory.node_collection["spine01"].interfaces["swp3"].remote_port
+
+        assert self.inventory.node_collection["leaf04"].function == "leaf"
+        assert self.inventory.node_collection["leaf04"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf04"].memory == "768"
+        assert self.inventory.node_collection["leaf04"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf04"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf04"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf04"].interfaces) == 1
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].hostname == "leaf04"
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].interface_name == "swp49"
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].mac is not None
+
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].local_port is not None
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].remote_port is not None
+
+        assert self.inventory.node_collection["leaf03"].interfaces["swp49"].local_port is not None
+        assert self.inventory.node_collection["leaf03"].interfaces["swp49"].remote_port is not None
+
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].local_port == \
+               self.inventory.node_collection["leaf03"].interfaces["swp49"].remote_port
 

@@ -272,52 +272,6 @@ class NetworkInterface:
     def __str__(self):
         """Print out the contents of the interface object
         """
-
-        # We have to catch None values and set them to strings.
-        # But also don't want this to change actual object assignments,
-        # so use local variables
-        # if self.hostname is None:
-        #     hostname = "None"
-        # else:
-        #     hostname = self.hostname
-
-        # if self.interface_name is None:
-        #     interface_name = "None"
-        # else:
-        #     interface_name = self.interface_name
-
-        # if self.ip is None:
-        #     ip = "None"
-        # else:
-        #     ip = self.ip
-
-        # if self.mac is None:
-        #     mac = "None"
-        # else:
-        #     mac = self.mac
-
-
-        # if self.network is None:
-        #     network = "None"
-        # else:
-        #     network = self.network
-
-
-        # if self.local_port is None:
-        #     local_port = "None"
-        # else:
-        #     local_port = self.local_port
-
-        # if self.remote_port is None:
-        #     remote_port = "None"
-        # else:
-        #     remote_port = self.remote_port
-
-        # if self.attributes is None:
-        #     attributes = "None"
-        # else:
-        #     attributes = self.attributes
-
         output = []
         output.append("Hostname: " + (self.hostname or "None"))
         output.append("interface_name: " + (self.interface_name or "None"))

@@ -276,74 +276,77 @@ class TestNetworkInterface:
         self.inventory.node_collection["leaf02"]
 
 
-    # def test_add_parsed_topology(self):
-    #     """Test parsing a Graphviz topology file.
-    #     Uses tests/dot_files/simple.dot as the test file
-    #     """
+    def test_add_parsed_topology(self):
+        """Test parsing a Graphviz topology file.
+        Uses tests/dot_files/simple.dot as the test file
+        """
 
-    #     self.topology_object.parse_topology("./tests/dot_files/simple.dot")
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
 
-    #     leaf01 = tc.NetworkNode(hostname="leaf01", function="leaf",
-    #                             vm_os="CumulusCommunity/cumulus-vx", os_version="3.4.3",
-    #                             memory="768", config="./helper_scripts/config_switch.sh")
+        self.inventory.provider == "libvirt"
 
-    #     leaf02 = tc.NetworkNode(hostname="leaf02", function="leaf",
-    #                             vm_os="CumulusCommunity/cumulus-vx", os_version="3.4.3",
-    #                             memory="768", config="./helper_scripts/config_switch.sh")
+        self.inventory.add_parsed_topology(parser)
 
-    #     leaf03 = tc.NetworkNode(hostname="leaf03", function="leaf",
-    #                             vm_os="CumulusCommunity/cumulus-vx", os_version="3.4.3",
-    #                             memory="768", config="./helper_scripts/config_switch.sh")
+        assert len(self.inventory.node_collection) == 5
+        assert "leaf01" in self.inventory.node_collection
+        assert "leaf02" in self.inventory.node_collection
+        assert "leaf03" in self.inventory.node_collection
+        assert "leaf04" in self.inventory.node_collection
+        assert "spine01" in self.inventory.node_collection
 
-    #     leaf04 = tc.NetworkNode(hostname="leaf04", function="leaf",
-    #                             vm_os="CumulusCommunity/cumulus-vx", os_version="3.4.3",
-    #                             memory="768", config="./helper_scripts/config_switch.sh")
+        assert self.inventory.node_collection["leaf01"].function == "leaf"
+        assert self.inventory.node_collection["leaf01"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf01"].memory == "768"
+        assert self.inventory.node_collection["leaf01"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf01"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf01"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf01"].interfaces) == 2
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].hostname == "leaf01"
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].mac is not None
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].network == \
+               self.inventory.node_collection["spine01"].interfaces["swp1"] .network
 
-    #     spine01 = tc.NetworkNode(hostname="spine01", function="spine",
-    #                             vm_os="CumulusCommunity/cumulus-vx", os_version="3.4.3",
-    #                             memory="768", config="./helper_scripts/config_switch.sh")
+        assert self.inventory.node_collection["leaf01"].interfaces["swp49"].network == \
+               self.inventory.node_collection["leaf02"].interfaces["swp49"] .network
 
-    #     leaf01_swp51 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51")
-    #     leaf02_swp51 = tc.NetworkInterface(hostname="leaf02", interface_name="swp51")
-    #     leaf03_swp51 = tc.NetworkInterface(hostname="leaf03", interface_name="swp51")
-    #     leaf01_swp49 = tc.NetworkInterface(hostname="leaf01", interface_name="swp49")
-    #     leaf03_swp49 = tc.NetworkInterface(hostname="leaf03", interface_name="swp49")
+        assert self.inventory.node_collection["leaf02"].function == "leaf"
+        assert self.inventory.node_collection["leaf02"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf02"].memory == "768"
+        assert self.inventory.node_collection["leaf02"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf02"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf02"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf02"].interfaces) == 2
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].hostname == "leaf02"
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].mac is not None
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].network == \
+               self.inventory.node_collection["spine01"].interfaces["swp2"] .network
 
-    #     spine01_swp1 = tc.NetworkInterface(hostname="spine01", interface_name="swp1")
-    #     spine01_swp2 = tc.NetworkInterface(hostname="spine01", interface_name="swp2")
-    #     spine01_swp3 = tc.NetworkInterface(hostname="spine01", interface_name="swp3")
+        assert self.inventory.node_collection["leaf03"].function == "leaf"
+        assert self.inventory.node_collection["leaf03"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf03"].memory == "768"
+        assert self.inventory.node_collection["leaf03"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf03"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf03"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf03"].interfaces) == 2
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].hostname == "leaf03"
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].mac is not None
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].network == \
+               self.inventory.node_collection["spine01"].interfaces["swp3"] .network
 
-    #     leaf02_swp49 = tc.NetworkInterface(hostname="leaf02", interface_name="swp49")
-    #     leaf04_swp49 = tc.NetworkInterface(hostname="leaf04", interface_name="swp49")
+        assert self.inventory.node_collection["leaf04"].function == "leaf"
+        assert self.inventory.node_collection["leaf04"].vm_os == "CumulusCommunity/cumulus-vx"
+        assert self.inventory.node_collection["leaf04"].memory == "768"
+        assert self.inventory.node_collection["leaf04"].os_version == "3.4.3"
+        assert self.inventory.node_collection["leaf04"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf04"].other_attributes == {}
+        assert len(self.inventory.node_collection["leaf04"].interfaces) == 1
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].hostname == "leaf04"
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].interface_name == "swp49"
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].mac is not None
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].network == \
+               self.inventory.node_collection["leaf03"].interfaces["swp49"] .network
 
-    #     leaf01_spine01 = tc.NetworkEdge(leaf01_swp51, spine01_swp1)
-    #     leaf02_spine01 = tc.NetworkEdge(leaf02_swp51, spine01_swp2)
-    #     leaf03_spine01 = tc.NetworkEdge(leaf03_swp51, spine01_swp3)
-
-    #     leaf01_leaf02 = tc.NetworkEdge(leaf01_swp49, leaf02_swp49)
-    #     leaf03_leaf04 = tc.NetworkEdge(leaf03_swp49, leaf04_swp49)
-
-    #     expected_nodes = [spine01, leaf04, leaf03, leaf02, leaf01]
-    #     expected_edges = [leaf01_spine01, leaf02_spine01, leaf03_spine01,
-    #                       leaf01_leaf02, leaf03_leaf04]
-
-    #     assert len(self.topology_object.nodes) == len(expected_nodes)
-    #     for node in self.topology_object.nodes:
-
-    #         if node.hostname == "spine01":
-    #             assert node.hostname == spine01.hostname
-    #             assert node.function == spine01.function
-
-    #         if node.hostname == "leaf01":
-    #             assert node.hostname == leaf01.hostname
-
-    #         if node.function == "leaf":
-    #             assert node.function == leaf01.function
-
-    #         assert node.vm_os == leaf01.vm_os
-    #         assert node.os_version == leaf01.os_version
-    #         assert node.memory == leaf01.memory
-    #         assert node.config == leaf01.config
-
-    #     # This should be a better test, I'm lazy.
-    #     assert len(self.topology_object.edges) == len(expected_edges)

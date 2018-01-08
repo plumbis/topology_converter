@@ -415,22 +415,18 @@ class Inventory:
         return new_mac
 
 
-        # candidate_mac = int(self.current_mac, 16) + 1
-        # while hex(candidate_mac) in self.mac_set:
-        #     #candidate_mac = ("%x" % (int(self.current_mac, 16) + 1)).lower()
-        #     candidate_mac = int(self.current_mac, 16) + 1
-        #     self.current_mac = hex(candidate_mac)
-
-        # self.mac_set.add(hex(candidate_mac))
-
-        # return hex(candidate_mac)
-
-
     def add_parsed_topology(self, parsed_topology):
-        self.parsed_topology = parsed_topology
-        #current_libvirt_port
-        #libvirt_gap
-        ## TODO
+        """Provided with a ParseGraphvizTopology object which has
+        been populated with a topology (nodes and edges).
+        This will turn that collection of nodes and edges into an inventory
+        """
+        for node in parsed_topology.nodes:
+            self.add_node(node)
+
+        for edge in parsed_topology.edges:
+            self.add_edge(edge)
+
+        return self
 
 # A class for this may not be the best thing,
 # but seems easier than stand alone methods
@@ -499,6 +495,8 @@ class ParseGraphvizTopology:
 
         for edge in graphviz_edges:
             self.edges.append(self.create_edge_from_graphviz(edge))
+
+        return self
 
 
     def lint_topology_file(self, topology_file):

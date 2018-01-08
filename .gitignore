@@ -8,3 +8,4 @@ cover/
 tc/
 venv/
 .idea/
+./tests/*.pyc

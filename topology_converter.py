@@ -32,462 +32,675 @@ class styles:
     ENDC = '\033[0m'
 
 
-def check_hostname(hostname):
-    """Simple hostname validation.
-    Using rules described in wikipedia article
-    https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_hostnames
-    """
+class NetworkNode:
 
-    # contain only the ASCII letters 'a' through 'z' (in a case-insensitive manner),
-    # the digits '0' through '9', and the minus sign ('-').
-    # The original specification of hostnames in RFC 952, mandated that labels could not
-    # start with a digit or with a minus sign, and must not end with a minus sign.
-    # However, a subsequent specification (RFC 1123) permitted hostname labels to start with digits.
-    # No other symbols, punctuation characters, or white space are permitted.
-    # While a hostname may not contain other characters, such as the underscore character (_)
-
-    if len(hostname.strip()) <= 0:
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Node name is blank" + styles.ENDC)
-
-        return False
-
-    # Hostname can only start with a letter or number
-    if not re.compile('[A-Za-z0-9]').match(hostname[0]):
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Node name can only start with letters or numbers " +
-              "'%s' is not valid!\n" % hostname + styles.ENDC)
-
-        return False
-
-    # Hostname can not end with a dash
-    if not re.compile('[A-Za-z0-9]').match(hostname[-1]):
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Node name can only end with letters or numbers " +
-              "'%s' is not valid!\n" % hostname + styles.ENDC)
-
-        return False
-
-    # Hostname can only contain A-Z, 0-9 and "-"
-    if not re.compile('^[A-Za-z0-9\-]+$').match(hostname):
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Node name can only contain letters numbers and dash(-) " +
-              "'%s' is not valid!\n" % hostname + styles.ENDC)
-
-        return False
-
-    return True
-
-
-def get_function_defaults(device_type):
-    """Returns default OS, memory, provisioning script for device types
-
-
-    Keyword arguments:
-    function - string of the type of device
-
-    Returns dict in the form:
-    {"os": "<vagrant box>", "memory": "<memory value>", "config": "<script location>"}
-    """
-    parsed_function = device_type.strip("\"").lower()
-
-    host_os = "yk0/ubuntu-xenial"
-    cumulus_vx = "CumulusCommunity/cumulus-vx"
-    default_memory = "512"
-    default_script = "./helper_scripts/extra_switch_config.sh"
-
-    defaults = {
-        "fake": {
-            "os": "None",
-            "memory": "1"
-        },
-        "oob-server": {
-            "os": host_os,
-            "memory": default_memory,
-            "config": "./helper_scripts/auto_mgmt_network/OOB_Server_Config_auto_mgmt.sh"
-        },
-        "oob-switch": {
-            "os": cumulus_vx,
-            "memory": default_memory,
-            "config": "./helper_scripts/oob_switch_config.sh"
-        },
-        "host": {
-            "os": host_os,
-            "memory": default_memory,
-            "config": "./helper_scripts/extra_server_config.sh"
-        },
-        "pxehost": {
-            "os": "None",
-            "memory": default_memory,
-            "config": "./helper_scripts/extra_server_config.sh"
+    def __init__(self, hostname, function, vm_os=None, memory=None, config=None, os_version=None, tunnel_ip="127.0.0.1", other_attributes={}):
+        defaults = {
+            "fake": {
+                "os": "None",
+                "memory": "1"
+            },
+            "oob-server": {
+                "os": "yk0/ubuntu-xenial",
+                "memory": "512",
+                "config": "./helper_scripts/auto_mgmt_network/OOB_Server_Config_auto_mgmt.sh"
+            },
+            "oob-switch": {
+                "os": "cumuluscommunity/cumulus-vx",
+                "memory": "512",
+                "config": "./helper_scripts/oob_switch_config.sh"
+            },
+            "host": {
+                "os": "yk0/ubuntu-xenial",
+                "memory": "512",
+                "config": "./helper_scripts/extra_server_config.sh"
+            },
+            "pxehost": {
+                "os": "None",
+                "memory": "512",
+                "config": "./helper_scripts/extra_server_config.sh"
+            }
         }
-    }
 
-    return defaults.get(parsed_function, {"os": cumulus_vx,
-                                          "memory": default_memory,
-                                          "config": default_script})
+        if self.check_hostname(hostname):
+            self.hostname = hostname
+        else:
+            exit(1)
 
+        self.function = function
 
-def supported_libvirt_os(node):
-    """Validates that the node's image is supported by libvirt"""
-    unsupported_images = ["boxcutter/ubuntu1604",
-                          "bento/ubuntu-16.04",
-                          "ubuntu/xenial64"]
+        if self.function in defaults:
+            if vm_os is None:
+                vm_os = defaults[function]["os"]
+            if memory is None:
+                memory = defaults[function]["memory"]
+            if config is None and function != "fake":
+                config = defaults[function]["config"]
+                if not os.path.isfile(config):
+                    print(styles.WARNING + styles.BOLD +
+                          "    WARNING: Node \"" + hostname +
+                          " config file " + config + " does not exist" + styles.ENDC)
 
-    if node["os"] in unsupported_images:
-        return False
-    else:
+        try:
+            if int(memory) <= 0:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR -- Memory must be greater than 0mb on " +
+                      self.hostname + styles.ENDC)
+                exit(1)
+        except (ValueError, TypeError):
+            print(styles.FAIL + styles.BOLD +
+                      " ### ERROR -- Memory value is invalid for " +
+                      self.hostname + styles.ENDC)
+            exit(1)
+
+        self.vm_os = vm_os
+        self.memory = memory
+        self.config = config
+        self.tunnel_ip = tunnel_ip
+        self.interfaces = {}
+        self.os_version = os_version
+        self.other_attributes = other_attributes
+
+    def check_hostname(self, hostname):
+        """Simple hostname validation.
+        Using rules described in wikipedia article
+        https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_hostnames
+        """
+
+        # contain only the ASCII letters 'a' through 'z' (in a case-insensitive manner),
+        # the digits '0' through '9', and the minus sign ('-').
+        # The original specification of hostnames in RFC 952, mandated that labels could not
+        # start with a digit or with a minus sign, and must not end with a minus sign.
+        # However, a subsequent specification (RFC 1123) permitted hostname labels to start with digits.
+        # No other symbols, punctuation characters, or white space are permitted.
+        # While a hostname may not contain other characters, such as the underscore character (_)
+
+        if len(hostname.strip()) <= 0:
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: Node name is blank" + styles.ENDC)
+
+            return False
+
+        # Hostname can only start with a letter or number
+        if not re.compile('[A-Za-z0-9]').match(hostname[0]):
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: Node name can only start with letters or numbers " +
+                  "'%s' is not valid!\n" % hostname + styles.ENDC)
+
+            return False
+
+        # Hostname can not end with a dash
+        if not re.compile('[A-Za-z0-9]').match(hostname[-1]):
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: Node name can only end with letters or numbers " +
+                  "'%s' is not valid!\n" % hostname + styles.ENDC)
+
+            return False
+
+        # Hostname can only contain A-Z, 0-9 and "-"
+        if not re.compile('^[A-Za-z0-9\-]+$').match(hostname):
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: Node name can only contain letters numbers and dash(-) " +
+                  "'%s' is not valid!\n" % hostname + styles.ENDC)
+
+            return False
+
         return True
 
 
-def validate_attributes(node, name):
-
-    # What attributes _must_ be present
-    mandatory_attributes = ['os', ]
-
-    # Verify all the manditory attributes are defined
-    for attribute in mandatory_attributes:
-        if attribute not in node:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR: MANDATORY DEVICE ATTRIBUTE \"" + attribute + "\" \
-                  not specified for " + name + styles.ENDC)
-
-            return False
-
-    # Verify that more than 0mb of memory is defined
-    if "memory" in node:
-        if int(node["memory"]) <= 0:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR -- Memory must be greater than 0mb on " +
-                  name + styles.ENDC)
-
-            return False
-
-    return True
-
-
-def add_mac_colon(mac_address, cli_args):
-    if cli_args.verbose:
-        print("MAC ADDRESS IS: \"%s\"" % mac_address)
-    return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
-
-
-def graphviz_edge_to_tuple(edge):
-    """Take in a graphviz edge object and turn it into a tuple.
-    The tuple is a pair of dict() representing each side of the link.
-    The dict key is the hostname with associated attributes
-     hostname - the device name
-     interface - the edge interface
-     mac - the mac address, either user provided or None
-    """
-    left = dict()
-    right = dict()
-    left["hostname"] = edge.get_source().split(":")[0].replace('"', '')
-    left["interface"] = edge.get_source().split(":")[1].replace('"', '')
-    left["mac"] = edge.get("left_mac")
-
-    right["hostname"] = edge.get_destination().split(":")[0].replace('"', '')
-    right["interface"] = edge.get_destination().split(":")[1].replace('"', '')
-    right["mac"] = edge.get("right_mac")
-
-    # Process passthrough attributes
-    for attribute in edge.get_attributes():
-        value = edge.get(attribute).strip("\"")
-
-        if attribute.startswith('left_'):
-            left[attribute[5:]] = value
-
-        elif attribute.startswith('right_'):
-            right[attribute[6:]] = value
-
+    def get_interface(self, interface_name):
+        """Returns the specificed NetworkInterface object for a given interface name.
+        If the interface does not exist, returns None
+        """
+        if interface_name in self.interfaces:
+            return self.interfaces[interface_name]
         else:
-            left[attribute] = value
-            right[attribute] = value
-
-    # If the user supplied a MAC remove the ":", "." and whitespace
-    # Actual validation will happen in validate_macs() as part of mac_fetch()
-    if left["mac"] is not None:
-        temp = left["mac"].replace(":", "")
-        temp = temp.replace(".", "")
-        left["mac"] = temp.strip().lower()
-
-    if right["mac"] is not None:
-        temp = right["mac"].replace(":", "")
-        temp = temp.replace(".", "")
-        right["mac"] = temp.strip().lower()
-
-    return (left, right)
+            return None
 
 
-def remove_interface_slash(edge):
-    """Process the source and destinations of an edge and remove slashes.
+    def add_interface(self, network_interface):
+        """Adds a NetworkInterface object to the interface collection. Returns the updated NetworkNode object.
+        """
+        self.interfaces[network_interface.interface_name] = network_interface
 
-    Keyword Arguments:
-    edge - a processed edge of the graph. Not a graphviz edge object
-    """
+        return self
 
-    for side in edge:
-        if "/" in side["interface"]:
-            new_interface = side["interface"].replace('/', '-')
+    def __str__(self):
+        output = []
+        output.append("Hostname: " + (self.hostname or "None"))
+        output.append("Function: " + (self.function or "None"))
+        output.append("OS: " + (self.vm_os or "None"))
+        output.append("OS Version: " + (self.os_version or "None"))
+        output.append("Memory: " + (self.memory or "None"))
+        output.append("Config: " + (self.config or "None"))
+        output.append("Libvirt Tunnel IP: " + (self.tunnel_ip or "None"))
+        output.append("Attributes: " + (str(self.other_attributes) or "None"))
+        output.append("Interfaces: " + (str(self.interfaces) or "None"))
+        return "\n".join(output)
+
+
+class NetworkInterface:
+    def __init__(self, hostname, interface_name, mac=None, ip=None, network=None, local_port=None, remote_port=None):
+        self.hostname = hostname
+        self.interface_name = self.remove_interface_slash(interface_name)
+        self.ip = ip
+        self.mac = self.validate_mac(mac)
+        self.network = network
+        self.local_port = local_port
+        self.remote_port = remote_port
+        self.attributes = {}
+
+
+    # def add_mac_colon(self, mac_address, cli_args):
+    #     if cli_args.verbose:
+    #         print("MAC ADDRESS IS: \"%s\"" % mac_address)
+    #     return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
+
+
+    def remove_interface_slash(self, interface_name):
+        """Remove a / character from an interface name
+        """
+        if "/" in interface_name:
+            new_interface = interface_name.replace('/', '-')
             print(styles.WARNING + styles.BOLD +
-                  "    WARNING: Device " + str(side["hostname"]) + " interface"
-                  " " + str(side["interface"]) + " contains a slash"
+                  "    WARNING: Device " + str(self.hostname) + " interface"
+                  " " + str(interface_name) + " contains a slash"
                   " and will be convereted to " + str(new_interface),
                   styles.ENDC)
 
-            side["interface"] = new_interface
-
-    return edge
-
-
-def validate_mac(mac):
-    if len(mac) != 12:
-        return False
-
-    try:
-        int(mac, 16)
-
-    except Exception:
-        return False
-
-    # Broadcast
-    if mac == "ffffffffffff":
-        return False
-
-    # Invalid
-    if mac == "000000000000":
-        return False
-
-    # Multicast
-    if mac[:6] == "01005e":
-        return False
-
-    return True
+            return new_interface
+        else:
+            return interface_name
 
 
-def mac_fetch(edge, inventory, cli_args):
-    """Provides a unique mac address.
+    def add_attribute(self, attribute):
+        """Add an attribute dict to the existing attributes dict
+        """
+        self.attributes.update(attribute)
 
-    Keyword Arguments:
-    edge: the edge to process MAC address for
-    inventory: the topology inventory
-    cli_args: command line inputs
+
+    def validate_mac(self, mac):
+        """Validate that the input MAC address
+        """
+        if mac is None:
+            return None
+
+        mac = mac.replace(":", "")
+        mac = mac.replace(".", "")
+        mac = mac.strip().lower()
+
+        if len(mac) > 12:
+            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is too long" + styles.ENDC)
+            exit(1)
+
+        if len(mac) < 12:
+            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is too short" + styles.ENDC)
+            exit(1)
+
+        try:
+            int(mac, 16)
+
+        except Exception:
+            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " could not be converted to hex. " +
+                  "Perhaps there are bad characters?" + styles.ENDC)
+            exit(1)
+
+        # Broadcast
+        if mac == "ffffffffffff":
+            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is a broadcast address" + styles.ENDC)
+            exit(1)
+
+        # Invalid
+        if mac == "000000000000":
+            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is an invalid all zero MAC" + styles.ENDC)
+            exit(1)
+
+        # Multicast
+        if mac[:6] == "01005e":
+            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is a multicast MAC" + styles.ENDC)
+            exit(1)
+
+        return mac
+
+
+    def __str__(self):
+        """Print out the contents of the interface object
+        """
+
+        # We have to catch None values and set them to strings.
+        # But also don't want this to change actual object assignments,
+        # so use local variables
+        # if self.hostname is None:
+        #     hostname = "None"
+        # else:
+        #     hostname = self.hostname
+
+        # if self.interface_name is None:
+        #     interface_name = "None"
+        # else:
+        #     interface_name = self.interface_name
+
+        # if self.ip is None:
+        #     ip = "None"
+        # else:
+        #     ip = self.ip
+
+        # if self.mac is None:
+        #     mac = "None"
+        # else:
+        #     mac = self.mac
+
+
+        # if self.network is None:
+        #     network = "None"
+        # else:
+        #     network = self.network
+
+
+        # if self.local_port is None:
+        #     local_port = "None"
+        # else:
+        #     local_port = self.local_port
+
+        # if self.remote_port is None:
+        #     remote_port = "None"
+        # else:
+        #     remote_port = self.remote_port
+
+        # if self.attributes is None:
+        #     attributes = "None"
+        # else:
+        #     attributes = self.attributes
+
+        output = []
+        output.append("Hostname: " + (self.hostname or "None"))
+        output.append("interface_name: " + (self.interface_name or "None"))
+        output.append("IP: " + (self.ip or "None"))
+        output.append("MAC: " + (self.mac or "None"))
+        output.append("Network: " + (self.network or "None"))
+        output.append("Libvirt localport: " + (self.local_port or "None"))
+        output.append("Libvirt remote port: " + (self.remote_port or "None"))
+        output.append("Attributes: " + (str(self.attributes) or "None"))
+
+        return "\n".join(output)
+
+
+class NetworkEdge:
+    """A network edge is a collection of two NetworkInterface objects that share a link
     """
-    # starting_mac default is based on Cumulus Networks mac range
-    # https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux
-    starting_mac = "443839000000"
+    def __init__(self, left_side, right_side):
+        self.left_side = left_side
+        self.right_side = right_side
 
-    for side in edge:
 
-        if side["mac"] is not None:
-            # Validate the user provided MAC address
-            if not validate_mac(side["mac"]):
+class Inventory:
+    def __init__(self, current_libvirt_port=1024, libvirt_gap=8000):
+        self.parsed_topology = None
+        self.provider = None
+        self.node_collection = dict()
+        self.mac_set = set()
+        self.provider_offset = 1
+        self.current_libvirt_port = current_libvirt_port
+        self.libvirt_gap = libvirt_gap
+        # current_mac default is based on Cumulus Networks mac range
+        # https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux
+        self.current_mac = "0x443839000000"
+
+
+    def add_node(self, node):
+        """Add a NetworkNode to the inventory. Returns the updated inventory
+        """
+        if self.provider == "libvirt":
+            unsupported_images = ["boxcutter/ubuntu1604",
+                          "bento/ubuntu-16.04",
+                          "ubuntu/xenial64"]
+
+            if node.vm_os in unsupported_images:
+                print(styles.FAIL + styles.BOLD + " ### ERROR: device " + node.hostname +
+                      " -- Incompatible OS for libvirt provider.")
+                print("              Do not attempt to use a mutated image for Ubuntu16.04 on Libvirt")
+                print("              use an ubuntu1604 image which is natively built for libvirt")
+                print("              like yk0/ubuntu-xenial.")
+                print("              See https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection")
+                print("              See https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607")
+                print("              See https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + styles.ENDC)
+
+                exit(1)
+
+        self.node_collection[node.hostname] = node
+
+        return self
+
+
+    def get_node_by_name(self, node_name):
+        """Return a specific NetworkNode() in the inventory by it's name
+        """
+        return self.node_collection[node_name]
+
+
+    def add_edge(self, network_edge):
+        """Add an edge to the inventory and links the edge to the associated NetworkNode objects.
+        This assumes the NetworkNode objects have already been added to the inventory.
+        This expectes a NetworkEdge() object and returns the updated inventory.
+
+        Keyword Arguments:
+        network_edge - a tuple of NetworkEdge objects
+        """
+
+        for side in [network_edge.left_side, network_edge.right_side]:
+
+            # Check if the interface has already been used.
+            print self.get_node_by_name(side.hostname)
+            if self.get_node_by_name(side.hostname).get_interface(side.interface_name) is not None:
+                print(styles.FAIL + styles.BOLD + " ### ERROR -- Interface " + side.interface_name +
+                      " Already used on device: " + side.hostname + styles.ENDC)
+                exit(1)
+
+            else:
+
+                # Get a MAC address for the interface, if it doesn't already have one
+                if side.mac is None:
+                    side.mac = self.get_mac(side)
+
+        # Build the network links for virtualbox
+        if self.provider == "virtualbox":
+            network_edge.left_side.network = "network" + str(self.provider_offset)
+            network_edge.right_side.network = "network" + str(self.provider_offset)
+            self.provider_offset += 1
+
+        # Build the local and remote ports for libvirt
+        if self.provider == "libvirt":
+            if self.current_libvirt_port > self.libvirt_gap:
                 print(styles.FAIL + styles.BOLD +
-                      " ### ERROR -- Device " + side["hostname"] + " has an invalid MAC " + side["mac"] +
+                      " ### ERROR: Configured Port_Gap: (" + str(self.libvirt_gap) + ") \
+                      exceeds the number of links in the topology. Read the help options to fix.\n\n" +
                       styles.ENDC)
                 exit(1)
 
-            inventory["macs"].add(side["mac"])
+            network_edge.left_side.local_port = str(self.current_libvirt_port)
+            network_edge.right_side.remote_port = str(self.current_libvirt_port)
 
-        else:
-            # if the user did not define a mac, make one up.
-            # This will skip some MACs if the user defines any MACs
-            # but that's easier than keeping a global counter
-            mac_offset = len(inventory["macs"])
-            candidate_mac = ("%x" % (int(starting_mac, 16) + mac_offset)).lower()
-            mac_assigned = False
+            network_edge.left_side.remote_port = str(self.current_libvirt_port + self.libvirt_gap)
+            network_edge.right_side.local_port = str(self.current_libvirt_port + self.libvirt_gap)
 
-            if candidate_mac not in inventory["macs"]:
-                inventory["macs"].add(candidate_mac)
-                side["mac"] = candidate_mac
-                mac_assigned = True
+            self.current_libvirt_port += 1
 
-            # This block needs a test case
-            # but I don't know how to get here
-            while not mac_assigned:
-                if cli_args.verbose:
-                    print(styles.WARNING + styles.BOLD +
-                          "    WARNING: MF MAC Address Collision -- tried to use " +
-                          candidate_mac + " (on " + side["interface"] + ") but it was already in use." +
-                          styles.ENDC)
+        left_node = self.get_node_by_name(network_edge.left_side.hostname)
+        right_node = self.get_node_by_name(network_edge.right_side.hostname)
 
-                mac_offset += 1
-                candidate_mac = ("%x" % (int(starting_mac, 16) + mac_offset)).lower()
+        left_node.add_interface(network_edge.left_side)
+        right_node.add_interface(network_edge.right_side)
 
-                if candidate_mac not in inventory["macs"]:
-                    inventory["macs"].add(candidate_mac)
-                    side["mac"] = candidate_mac
-                    mac_assigned = True
-
-        if cli_args.verbose:
-            print("    Fetched new MAC ADDRESS: \"%s\"" % side["mac"])
-
-    return inventory, edge
+        return self
 
 
-def add_link(edge, inventory, cli_args):
-    """Adds a link to the inventory.
-    A link for virtualbox is a string like "net1" that joins the two sides together
-    For libvirt, a link is corresponding source and destination ports
+    def get_mac(self, network_interface):
+        """Provides a unique mac address.
 
-    The edge attribute is a tuple, returned by graphviz_edge_to_tuple, *not* a Graphviz Edge object
+        Keyword Arguments:
+        network_interface: the NetworkInterface() object to provide MAC addresses for
+        """
+        while self.current_mac in self.mac_set:
+            # Hex is stored as strings in python
+            # To add, we have to make it an int with base 16
+            # But then this returns a base 10 int. wtf.
+            # So we have to cast to hex() to get the 0x string back
+            self.current_mac = hex(int(self.current_mac, 16) + 1)
+
+        new_mac = self.current_mac
+        self.mac_set.add(new_mac)
+
+        self.current_mac = hex(int(self.current_mac, 16) + 1)
+
+        return new_mac
+
+
+        # candidate_mac = int(self.current_mac, 16) + 1
+        # while hex(candidate_mac) in self.mac_set:
+        #     #candidate_mac = ("%x" % (int(self.current_mac, 16) + 1)).lower()
+        #     candidate_mac = int(self.current_mac, 16) + 1
+        #     self.current_mac = hex(candidate_mac)
+
+        # self.mac_set.add(hex(candidate_mac))
+
+        # return hex(candidate_mac)
+
+
+    def add_parsed_topology(self, parsed_topology):
+        self.parsed_topology = parsed_topology
+        #current_libvirt_port
+        #libvirt_gap
+        ## TODO
+
+# A class for this may not be the best thing,
+# but seems easier than stand alone methods
+class ParseGraphvizTopology:
+    """Parses a graphviz dot file and creates an object with
+    a list of NetworkNode and NetworkEdge objects
     """
-    # "NOTHING" links are not supported.
-    # May not be needed, needs further investigation on how to build dummy eth0 interface
 
-    # pp = pprint.PrettyPrinter(indent=2)
-    # pp.pprint(inventory)
-    # print ""
-    first_edge_ports = ()
+    def __init__(self):
 
-    for side in edge:
+        self.topology_file = None
+        self.nodes = list()
+        self.edges = list()
 
-        if side["interface"] in inventory[side["hostname"]]["interfaces"]:
-            print(styles.FAIL + styles.BOLD + " ### ERROR -- Interface " + side["interface"] +
-                  " Already used on device: " + side["hostname"] + styles.ENDC)
+
+
+    def parse_topology(self, topology_file):
+        """
+        Parse the provide graphviz topology object.
+
+        Returns a NetworkInventory() object.
+        """
+
+        # Pass through simple linter first to identify easy problems
+        if not self.lint_topology_file(topology_file):
             exit(1)
 
-        else:
-            inventory[side["hostname"]]["interfaces"].update({side["interface"]: {"mac": side["mac"]}})
+        # Open the .dot file and parse with graphviz
+        try:
+            graphviz_topology = pydotplus.graphviz.graph_from_dot_file(topology_file)
 
-            linkcount = inventory.setdefault("linkcount", 0)
+        except Exception:  # pragma: no cover
+            # Two known ways to get here:
+            # 1.) The file changed or was deleted between lint_topology_file() and graphviz call
+            # 2.) lint topo file should be extended to handle missed failure.
+            # as a result this isn't in coverage
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: Cannot parse the provided topology.dot \
+                  file (%s)\n     There is probably a syntax error \
+                  of some kind, common causes include failing to \
+                  close quotation marks and hidden characters from \
+                  copy/pasting device names into the topology file."
+                  % (topology_file) + styles.ENDC)
 
-            # This code is very suspect.
-            if cli_args.provider == "virtualbox":
-                inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = "net" + str(linkcount)
-
-                if first_edge_ports:
-                    first_edge_ports = ()
-                    inventory["linkcount"] += 1
-                else:
-                    first_edge_ports = (0, 0)  # Set to any value to indicate we've seen the first edge
-
-            elif cli_args.provider == "libvirt":
-                PortA = str(int(cli_args.start_port) + linkcount)
-                PortB = str(int(cli_args.start_port) + int(cli_args.port_gap) + linkcount)
-
-                if int(PortA) > int(cli_args.start_port) + int(cli_args.port_gap):
-                    print(styles.FAIL + styles.BOLD +
-                          " ### ERROR: Configured Port_Gap: (" + str(cli_args.port_gap) + ") \
-                          exceeds the number of links in the topology. Read the help options to fix.\n\n" +
-                          styles.ENDC)
-
-                    exit(1)
-
-                # If we are on the second edge, we need to swap the ports from the first edge,
-                # Not create new ones.
-                if first_edge_ports:
-                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = {"port": {"local": first_edge_ports[1], "remote": first_edge_ports[0]}}
-                    first_edge_ports = ()
-                    inventory["linkcount"] += 1
-                else:
-                    inventory[side["hostname"]]["interfaces"][side["interface"]]["network"] = {"port": {"local": PortA, "remote": PortB}}
-                    first_edge_ports = (PortA, PortB)
-
-    return inventory
-
-
-def parse_nodes(nodes, cli_args):
-    """Parses the collection of graphviz nodes in the topology diagram
-
-    Keyword arguments:
-    nodes - a list of graphviz node objects
-    cli_args - command line arguments
-
-    Returns a dictionary of the parsed nodes
-    """
-    # define network inventory of hosts and settings
-    inventory = {}
-
-    # iterate over the graph to populate the inventory
-    for node in nodes:
-
-        # Strip quotes from the node name
-        node_name = node.get_name().replace('"', '')
-        print node_name
-        # validate the hostname
-        if not check_hostname(node_name):
             exit(1)
 
-        # track global mac assignment
-        inventory["macs"] = set()
+        try:
+            graphviz_nodes = graphviz_topology.get_node_list()
+            graphviz_edges = graphviz_topology.get_edge_list()
 
-        # If the node is already in the inventory, then do nothing
-        # else set the node defaults
-        # {"hostname": {"interfaces": {}}}
-        inventory.setdefault(node_name, {"interfaces": {}})
+        except Exception as e:  # pragma: no cover
+            # Like the previous exception
+            # if this is hit, it's either a corner, like file change
+            # or we need to expand the linter
+            print(e)
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: There is a syntax error in your topology file \
+                  (%s). Read the error output above for any clues as to the source."
+                  % (self.topology_file) + styles.ENDC)
+
+            exit(1)
+
+
+        for node in graphviz_nodes:
+            self.nodes.append(self.create_node_from_graphviz(node))
+
+        for edge in graphviz_edges:
+            self.edges.append(self.create_edge_from_graphviz(edge))
+
+
+    def lint_topology_file(self, topology_file):
+        """Validate the contents of the .dot topology file
+
+        This is a simple linter for dot files to help identify
+        where file errors are. This is independent of the full
+        .dot file parser provided by pydot.
+
+        This will check for:
+         - ASCII encoding
+         - Balanced double quotes ("")
+         - Balanced single quotes/ticks ('')
+         - That "--" exists to denote each side of the link
+
+        Keyword arguments:
+        topology_file - an ASCII encoded text file representing the topology
+        """
+        try:
+            with open(topology_file, "r") as topo_file:
+                line_list = topo_file.readlines()
+                count = 0
+
+                for line in line_list:
+                    count += 1
+                    # Try to encode into ascii
+                    # TODO: understand if UTF-8 support is possible
+                    # seems supported by pydot
+                    try:
+                        line.encode('ascii', 'ignore')
+
+                    except UnicodeDecodeError:
+                        print(styles.FAIL + styles.BOLD +
+                              " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
+                              Has hidden unicode characters in it which prevent it \
+                              from being converted to ASCII cleanly. Try manually \
+                              typing it instead of copying and pasting."
+                              % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
+                        return False
+
+                    if line.count("\"") % 2 == 1:
+                        print(styles.FAIL + styles.BOLD +
+                              " ### ERROR: Line %s: Has an odd \
+                              number of quotation characters \
+                              (\").\n     %s\n" % (count, line) + styles.ENDC)
+                        return False
+
+                    if line.count("'") % 2 == 1:
+                        print(styles.FAIL + styles.BOLD +
+                              " ### ERROR: Line %s: Has an odd \
+                              number of quotation characters \
+                              (').\n     %s\n" % (count, line) + styles.ENDC)
+                        return False
+
+                    if line.count(":") == 2:
+                        if " -- " not in line:
+                            print(styles.FAIL + styles.BOLD +
+                                  " ### ERROR: Line %s: Does not \
+                                  contain the following sequence \" -- \" \
+                                  to seperate the different ends of the link.\n     %s\n"
+                                  % (count, line) + styles.ENDC)
+
+                            return False
+        except Exception:
+            print(styles.FAIL + styles.BOLD +
+                  "Problem opening file, " + topology_file + " perhaps it doesn't exist?" +
+                  styles.ENDC)
+            return False
+
+        return True
+
+
+    def create_edge_from_graphviz(self, graphviz_edge):
+        """Take in a graphviz edge object and
+        returns a new NetworkEdge object
+        """
+
+        left_hostname = graphviz_edge.get_source().split(":")[0].replace('"', '')
+        left_interface = graphviz_edge.get_source().split(":")[1].replace('"', '')
+        left_mac = graphviz_edge.get("left_mac")
+
+        right_hostname = graphviz_edge.get_destination().split(":")[0].replace('"', '')
+        right_interface = graphviz_edge.get_destination().split(":")[1].replace('"', '')
+        right_mac = graphviz_edge.get("right_mac")
+
+        left = NetworkInterface(hostname=left_hostname, interface_name=left_interface, mac=left_mac)
+        right = NetworkInterface(hostname=right_hostname, interface_name=right_interface, mac=right_mac)
+
+        # Process passthrough attributes
+        for attribute in graphviz_edge.get_attributes():
+            value = graphviz_edge.get(attribute).strip("\"")
+
+            # Since we already pulled out the mac, skip it
+            if attribute == "left_mac" or attribute == "right_mac":
+                continue
+
+            if attribute.startswith('left_'):
+                left.add_attribute({attribute[5:]: value})
+
+            elif attribute.startswith('right_'):
+                right.add_attribute({attribute[6:]: value})
+
+            else:
+                left.add_attribute({attribute: value})
+                right.add_attribute({attribute: value})
+
+        return NetworkEdge(left, right)
+
+
+    def create_node_from_graphviz(self, graphviz_node):
+        """Returns a NetworkNode object from a graphviz node object
+        """
+        hostname = graphviz_node.get_name().replace('"', '')
 
         # get_attributes() returns the list of settings at the top of the file
         # ex. {'function': '"spine"', 'config': '"./helper_scripts/config_switch.sh"',
         #      'version': '"3.4.3"', 'os': '"CumulusCommunity/cumulus-vx"', 'memory': '"768"'}
-        node_attr_list = node.get_attributes()
+        #
+        # all the graphviz object elements are wrapped in quotes.
+        # Remember to remove them before processing
+        graphviz_attributes = graphviz_node.get_attributes()
 
-        # If the user defined a function, provide defaults
-        if "function" in node_attr_list:
-            # jams the dict returned from get_functional_defaults() into the inventory[node] dict
-            inventory[node_name].update(get_function_defaults(node.get("function")))
-        else:
-            # all the attributes are set to lowercase
-            # since this attribute is set early, manually keep it lowercase
-            inventory[node_name].update({"function": "unknown"})
+        vm_os = None
+        function = "unknown"
+        memory = None
+        config = None
+        other_attributes = {}
 
-        # Add attributes to node inventory
-        for attribute in node_attr_list:
+        for attribute_key in graphviz_attributes.keys():
+            if attribute_key == "os":
+                vm_os = graphviz_attributes["os"].replace("\"", "")
 
-            if cli_args.verbose:
-                print(attribute + " = " + node.get(attribute))
+            elif attribute_key == "function":
+                function = graphviz_attributes["function"].replace("\"", "").lower()
 
-            inventory[node_name][attribute] = node.get(attribute).strip("\"").lower()
+            elif attribute_key == "memory":
+                memory = graphviz_attributes["memory"].replace("\"", "")
 
-        # If "config" is defined and the file can't be found
-        # print a warning
-        if "config" in inventory[node_name]:
-            if not os.path.isfile(inventory[node_name]["config"]):
-                print(styles.WARNING + styles.BOLD +
-                      "    WARNING: Node \"" + node_name +
-                      " config file " + inventory[node_name]["config"] + " does not exist" + styles.ENDC)
+            elif attribute_key == "config":
+                config = graphviz_attributes["config"].replace("\"", "").lower()
 
-        # some box images are know to not work with libvirt
-        # prevent the user from using them
-        if "os" in inventory[node_name] and cli_args.provider == "libvirt":
-            if not supported_libvirt_os(inventory[node_name]):
-                    print(styles.FAIL + styles.BOLD + " ### ERROR: device " + node_name +
-                          " -- Incompatible OS for libvirt provider.")
-                    print("              Do not attempt to use a mutated image for Ubuntu16.04 on Libvirt")
-                    print("              use an ubuntu1604 image which is natively built for libvirt")
-                    print("              like yk0/ubuntu-xenial.")
-                    print("              See https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection")
-                    print("              See https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607")
-                    print("              See https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + styles.ENDC)
+            elif attribute_key == "version":
+                os_version = graphviz_attributes["version"].replace("\"", "").lower()
 
-                    exit(1)
+            # For any unhandled attributes, pass them through unmodified
+            else:
+                other_attributes.update({attribute_key.replace("\"", ""): graphviz_attributes[attribute_key].replace("\"", "")})
 
-        if not validate_attributes(inventory[node_name], node_name):
+        # Verify that they provided an OS
+        if vm_os is None:
+            print(styles.FAIL + styles.BOLD + " ### ERROR: OS not provided for " + hostname + styles.ENDC)
             exit(1)
 
-        # If the libvirt tunnelIP isn't defined, make it localhost
-        if cli_args.provider == "libvirt":
-            inventory[node_name].update({"tunnel_ip": "127.0.0.1"})
+        return NetworkNode(hostname=hostname, function=function, vm_os=vm_os, memory=memory,
+                           config=config, os_version=os_version, other_attributes=other_attributes)
 
-    return inventory
-
-
-def parse_edges(edges, inventory, cli_args):
-
-    # Add All the Edges to Inventory
-
-    # an edge looks like:
-    # ({'interface': 'swp49', 'mac': None, 'hostname': 'leaf01'}, {'interface': 'swp49', 'mac': None, 'hostname': 'leaf02'})
-    for graphviz_edge in edges:
-
-        edge = remove_interface_slash(graphviz_edge_to_tuple(graphviz_edge))
-
-        inventory, edge = mac_fetch(edge, inventory, cli_args)
-
-        inventory = add_link(edge, inventory, cli_args)
-
-
-    return inventory
 
 def parse_arguments():
     """ Parse command line arguments, and return a dict of values."""
@@ -573,131 +786,6 @@ def parse_arguments():
     #     print(args)
 
     return parser
-
-
-def lint_topo_file(topology_file):
-    """Validate the contents of the .dot topology file
-
-    This is a simple linter for dot files to help identify
-    where file errors are. This is independent of the full
-    .dot file parser provided by pydot.
-
-    This will check for:
-     - ASCII encoding
-     - Balanced double quotes ("")
-     - Balanced single quotes/ticks ('')
-     - That "--" exists to denote each side of the link
-
-    Keyword arguments:
-    topology_file - an ASCII encoded text file representing the topology
-    """
-    try:
-        with open(topology_file, "r") as topo_file:
-            line_list = topo_file.readlines()
-            count = 0
-
-            for line in line_list:
-                count += 1
-                # Try to encode into ascii
-                # TODO: understand if UTF-8 support is possible
-                # seems supported by pydot
-                try:
-                    line.encode('ascii', 'ignore')
-
-                except UnicodeDecodeError:
-                    print(styles.FAIL + styles.BOLD +
-                          " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
-                          Has hidden unicode characters in it which prevent it \
-                          from being converted to ASCII cleanly. Try manually \
-                          typing it instead of copying and pasting."
-                          % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
-                    return False
-
-                if line.count("\"") % 2 == 1:
-                    print(styles.FAIL + styles.BOLD +
-                          " ### ERROR: Line %s: Has an odd \
-                          number of quotation characters \
-                          (\").\n     %s\n" % (count, line) + styles.ENDC)
-                    return False
-
-                if line.count("'") % 2 == 1:
-                    print(styles.FAIL + styles.BOLD +
-                          " ### ERROR: Line %s: Has an odd \
-                          number of quotation characters \
-                          (').\n     %s\n" % (count, line) + styles.ENDC)
-                    return False
-
-                if line.count(":") == 2:
-                    if " -- " not in line:
-                        print(styles.FAIL + styles.BOLD +
-                              " ### ERROR: Line %s: Does not \
-                              contain the following sequence \" -- \" \
-                              to seperate the different ends of the link.\n     %s\n"
-                              % (count, line) + styles.ENDC)
-
-                        return False
-    except Exception:
-        print(styles.FAIL + styles.BOLD +
-              "Problem opening file, " + topology_file + " perhaps it doesn't exist?" +
-              styles.ENDC)
-        return False
-
-    return True
-
-
-def parse_topology(cli_args):
-    """
-    Parse the provide topology file. Failures to parse will exit(1)
-
-    Keyword arguments:
-    topology_file - text topology file provided at command line
-    provider - the desired virtualization provider (libvirt, virtualbox)
-    verbose - print verbose outputs
-    """
-
-    # Pass through simple linter first to identify easy problems
-    if not lint_topo_file(cli_args.topology_file):
-        exit(1)
-
-    # Open the .dot file and parse with graphviz
-    try:
-        topology = pydotplus.graphviz.graph_from_dot_file(cli_args.topology_file)
-
-    except Exception as e:  # pragma: no cover
-        # Two known ways to get here:
-        # 1.) The file changed or was deleted between lint_topo_file() and graphviz call
-        # 2.) lint topo file should be extended to handle missed failure.
-        # as a result this isn't in coverage
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: Cannot parse the provided topology.dot \
-              file (%s)\n     There is probably a syntax error \
-              of some kind, common causes include failing to \
-              close quotation marks and hidden characters from \
-              copy/pasting device names into the topology file."
-              % (cli_args.topology_file) + styles.ENDC)
-
-        exit(1)
-
-    try:
-        nodes = topology.get_node_list()
-        edges = topology.get_edge_list()
-
-    except Exception as e:  # pragma: no cover
-        # Like the previous exception
-        # if this is hit, it's either a corner, like file change
-        # or we need to expand the linter
-        print(e)
-        print(styles.FAIL + styles.BOLD +
-              " ### ERROR: There is a syntax error in your topology file \
-              (%s). Read the error output above for any clues as to the source."
-              % (cli_args.topology_file) + styles.ENDC)
-
-        exit(1)
-
-    inventory = parse_nodes(nodes, cli_args)
-    inventory = parse_edges(edges, inventory, cli_args)
-
-    return inventory
 
 
 
@@ -1404,17 +1492,18 @@ def build_mgmt_network(inventory, cli_args):
 def main():
     cli = parse_arguments()
     cli_args = cli.parse_args()
-    # global mac_map
+
     print(styles.HEADER + "\n######################################")
     print(styles.HEADER + "          Topology Converter")
     print(styles.HEADER + "######################################")
     print(styles.BLUE + "           originally written by Eric Pulvino")
 
-    inventory = parse_topology(cli_args)
-    inventory = check_pxe(inventory, cli_args)
+    parsed_topology = ParseGraphvizTopology(cli_args.topology_file)
+    inventory = Inventory(parsed_topology, cli_args)
 
-    if cli_args.create_mgmt_device:
-        inventory = build_mgmt_network(inventory, cli_args)
+
+    # if cli_args.create_mgmt_device:
+    #     inventory = build_mgmt_network(inventory, cli_args)
 
     # devices = populate_data_structures(inventory)
 

@@ -83,59 +83,37 @@ class TestNetworkInterface:
     def test_get_one_new_mac(self):
         """Test generating one new mac
         """
-        leaf01_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-
-        #print self.inventory.get_mac(leaf01_interface)
-        assert self.inventory.get_mac(leaf01_interface) == "0x443839000000"
+        assert self.inventory.get_mac() == "0x443839000000"
 
     def test_get_two_macs(self):
         """Test generating two macs.
         This validates that a new mac can be created when one exists.
         """
-        leaf01_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        leaf02_interface = tc.NetworkInterface(hostname="leaf02", interface_name="swp51", mac=None, ip=None )
-
-        assert self.inventory.get_mac(leaf01_interface) == "0x443839000000"
-        assert self.inventory.get_mac(leaf02_interface) == "0x443839000001"
+        assert self.inventory.get_mac() == "0x443839000000"
+        assert self.inventory.get_mac() == "0x443839000001"
 
     def test_get_eleven_macs(self):
         """Test generating 11 macs.
         This tests that hex is working and the 11th mac is 0x...a and not 0x...10
         """
-        iface1 = tc.NetworkInterface(hostname="leaf01", interface_name="swp50", mac=None, ip=None )
-        iface2 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        iface3 = tc.NetworkInterface(hostname="leaf01", interface_name="swp52", mac=None, ip=None )
-        iface4 = tc.NetworkInterface(hostname="leaf01", interface_name="swp53", mac=None, ip=None )
-        iface5 = tc.NetworkInterface(hostname="leaf01", interface_name="swp54", mac=None, ip=None )
-        iface6 = tc.NetworkInterface(hostname="leaf01", interface_name="swp55", mac=None, ip=None )
-        iface7 = tc.NetworkInterface(hostname="leaf01", interface_name="swp56", mac=None, ip=None )
-        iface8 = tc.NetworkInterface(hostname="leaf01", interface_name="swp57", mac=None, ip=None )
-        iface9 = tc.NetworkInterface(hostname="leaf01", interface_name="swp58", mac=None, ip=None )
-        iface10 = tc.NetworkInterface(hostname="leaf01", interface_name="swp59", mac=None, ip=None )
-        iface11 = tc.NetworkInterface(hostname="leaf01", interface_name="swp60", mac=None, ip=None )
-
-        assert self.inventory.get_mac(iface1) == "0x443839000000"
-        assert self.inventory.get_mac(iface2) == "0x443839000001"
-        assert self.inventory.get_mac(iface3) == "0x443839000002"
-        assert self.inventory.get_mac(iface4) == "0x443839000003"
-        assert self.inventory.get_mac(iface5) == "0x443839000004"
-        assert self.inventory.get_mac(iface6) == "0x443839000005"
-        assert self.inventory.get_mac(iface7) == "0x443839000006"
-        assert self.inventory.get_mac(iface8) == "0x443839000007"
-        assert self.inventory.get_mac(iface9) == "0x443839000008"
-        assert self.inventory.get_mac(iface10) == "0x443839000009"
-        assert self.inventory.get_mac(iface11) == "0x44383900000a"
+        assert self.inventory.get_mac() == "0x443839000000"
+        assert self.inventory.get_mac() == "0x443839000001"
+        assert self.inventory.get_mac() == "0x443839000002"
+        assert self.inventory.get_mac() == "0x443839000003"
+        assert self.inventory.get_mac() == "0x443839000004"
+        assert self.inventory.get_mac() == "0x443839000005"
+        assert self.inventory.get_mac() == "0x443839000006"
+        assert self.inventory.get_mac() == "0x443839000007"
+        assert self.inventory.get_mac() == "0x443839000008"
+        assert self.inventory.get_mac() == "0x443839000009"
+        assert self.inventory.get_mac() == "0x44383900000a"
 
     def test_get_mac_with_existing(self):
         """Test getting a MAC when a static MAC was already assigned
         """
-        iface1 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        iface2 = tc.NetworkInterface(hostname="leaf02", interface_name="swp51", mac="443839000001", ip=None )
-        iface3 = tc.NetworkInterface(hostname="leaf03", interface_name="swp51", mac=None, ip=None )
-
-        self.inventory.get_mac(iface1)
+        self.inventory.get_mac()
         self.inventory.mac_set.add("0x443839000001")
-        assert self.inventory.get_mac(iface3) == "0x443839000002"
+        assert self.inventory.get_mac() == "0x443839000002"
 
     def test_add_edge_virtualbox(self):
         leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",

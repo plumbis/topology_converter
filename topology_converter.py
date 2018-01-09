@@ -1,26 +1,28 @@
 #!/usr/bin/env python
+"""   Topology Converter converts a given
+topology.dot file to a Vagrantfile can use
+the virtualbox or libvirt Vagrant providers
+Initially written by Eric Pulvino 2015-10-19
+
+ hosted @ https://github.com/cumulusnetworks/topology_converter
+"""
+# pylint: disable=C0302
+
 import os
 import re
 import argparse
-import pydotplus
 import ipaddress
+import pydotplus
 # import sys
 # import time
 # import pprint
 # import jinja2
-#
-#    Topology Converter
-#       converts a given topology.dot file to a Vagrantfile
-#           can use the virtualbox or libvirt Vagrant providers
-# Initially written by Eric Pulvino 2015-10-19
-#
-#  hosted @ https://github.com/cumulusnetworks/topology_converter
-#
-#
+
 VERSION = "4.6.5"
 
-class styles:
-    # Use these for text colors
+class styles(object):
+    """Defines the terminal text colors for messages
+    """
     HEADER = '\033[95m'
     BLUE = '\033[94m'
     GREEN = '\033[92m'
@@ -44,7 +46,11 @@ class NetworkNode(object):
         other_attributes: a catch all for any other node specific attributes
     """
 
-    def __init__(self, hostname, function, vm_os=None, memory=None, config=None, os_version=None, tunnel_ip="127.0.0.1", other_attributes={}):
+    # pylint: disable=R0902
+    # pylint: disable=R0913
+    def __init__(self, hostname, function, vm_os=None, memory=None,
+                 config=None, os_version=None, tunnel_ip="127.0.0.1",
+                 other_attributes=None):
         defaults = {
             "fake": {
                 "os": "None",
@@ -103,17 +109,22 @@ class NetworkNode(object):
                   self.hostname + styles.ENDC)
             exit(1)
 
+        if other_attributes is None:
+            self.other_attributes = dict()
+        else:
+            self.other_attributes = other_attributes
+
         self.vm_os = vm_os
         self.memory = memory
         self.config = config
         self.tunnel_ip = tunnel_ip
         self.interfaces = {}
         self.os_version = os_version
-        self.other_attributes = other_attributes
-        self.pxehost = "pxehost" in other_attributes
+        self.pxehost = "pxehost" in self.other_attributes
         self.has_pxe_interface = False
 
-    def check_hostname(self, hostname):
+    @staticmethod
+    def check_hostname(hostname):
         """Simple hostname validation.
         Using rules described in wikipedia article
         https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_hostnames
@@ -150,7 +161,7 @@ class NetworkNode(object):
             return False
 
         # Hostname can only contain A-Z, 0-9 and "-"
-        if not re.compile('^[A-Za-z0-9\-]+$').match(hostname):
+        if not re.compile('^[A-Za-z0-9\-]+$').match(hostname): # pylint: disable=W1401
             print(styles.FAIL + styles.BOLD +
                   " ### ERROR: Node name can only contain letters numbers and dash(-) " +
                   "'%s' is not valid!\n" % hostname + styles.ENDC)
@@ -166,12 +177,13 @@ class NetworkNode(object):
         """
         if interface_name in self.interfaces:
             return self.interfaces[interface_name]
-        else:
-            return None
+
+        return None
 
 
     def add_interface(self, network_interface):
-        """Adds a NetworkInterface object to the interface collection. Returns the updated NetworkNode object.
+        """Adds a NetworkInterface object to the interface collection.
+        Returns the updated NetworkNode object.
         """
 
         # Check if any interface in this node is a pxe interface
@@ -220,10 +232,12 @@ class NetworkInterface(object):
     local_port - for Libvirt only, the libvirt local_port
     remote_port - for Libvirt only, the libvirt remote_port
     """
-    def __init__(self, hostname, interface_name, mac=None, ip=None, network=None, local_port=None, remote_port=None):
+    # pylint: disable=R0902, R0913
+    def __init__(self, hostname, interface_name, mac=None, ip=None,
+                 network=None, local_port=None, remote_port=None):
         self.hostname = hostname
         self.interface_name = self.remove_interface_slash(interface_name)
-        self.ip = ip
+        self.ip = ip # pylint: disable=C0103
         self.mac = self.validate_mac(mac)
         self.network = network
         self.local_port = local_port
@@ -249,8 +263,8 @@ class NetworkInterface(object):
                   styles.ENDC)
 
             return new_interface
-        else:
-            return interface_name
+
+        return interface_name
 
 
     def add_attribute(self, attribute):
@@ -282,7 +296,7 @@ class NetworkInterface(object):
         try:
             int(mac, 16)
 
-        except Exception:
+        except Exception: # pylint: disable=W0703
             print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
                   + mac + " could not be converted to hex. " +
                   "Perhaps there are bad characters?" + styles.ENDC)
@@ -325,7 +339,7 @@ class NetworkInterface(object):
 
         return "\n".join(output)
 
-
+# pylint: disable=R0903
 class NetworkEdge(object):
     """A network edge is a collection of two NetworkInterface objects that share a link
     """
@@ -337,6 +351,7 @@ class NetworkEdge(object):
 class Inventory(object):
     """An Inventory represents the entire network, with all nodes and edges.
     """
+    # pylint: disable=R0902
     def __init__(self, current_libvirt_port=1024, libvirt_gap=8000):
         self.parsed_topology = None
         self.provider = None
@@ -367,9 +382,9 @@ class Inventory(object):
                 print " for Ubuntu16.04 on Libvirt"
                 print "\tuse an ubuntu1604 image which is natively built for libvirt"
                 print "\tlike yk0/ubuntu-xenial."
-                print "\tSee https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection"
-                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607"
-                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + styles.ENDC
+                print "\tSee https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection" # pylint: disable=C0301
+                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607" # pylint: disable=C0301
+                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + styles.ENDC # pylint: disable=C0301
 
                 exit(1)
 
@@ -435,7 +450,8 @@ class Inventory(object):
             if self.current_libvirt_port > self.libvirt_gap:
                 print(styles.FAIL + styles.BOLD +
                       " ### ERROR: Configured Port_Gap: (" + str(self.libvirt_gap) + ") \
-                      exceeds the number of links in the topology. Read the help options to fix.\n\n" +
+                      exceeds the number of links in the topology." \
+                      "Read the help options to fix.\n\n" +
                       styles.ENDC)
                 exit(1)
 
@@ -492,6 +508,12 @@ class Inventory(object):
 
 
     def build_mgmt_network(self):
+        """Build a management network and add it to the inventory.
+        This will create an oob-mgmt-switch and oob-mgmt-server
+        NetworkNode if they do not exist and will
+        attach every inventory device's eth0 interface to
+        the oob-mgmt-server
+        """
         #### TODO: Take in cli_args and support custom IP range, dhcp pool sizes
         oob_server_ip = ipaddress.ip_interface(u'192.168.200.254/24')
         oob_subnet = oob_server_ip.network[0]
@@ -522,8 +544,11 @@ class Inventory(object):
 
         # Connect the oob server and switch
         mgmt_port = "swp" + str(mgmt_switch_port_count)
-        self.add_edge(NetworkEdge(NetworkInterface(hostname="oob-mgmt-server", interface_name="eth1", ip=str(oob_server_ip)),
-                                  NetworkInterface(hostname="oob-mgmt-switch", interface_name=mgmt_port)))
+        self.add_edge(NetworkEdge(NetworkInterface(hostname="oob-mgmt-server",
+                                                   interface_name="eth1",
+                                                   ip=str(oob_server_ip)),
+                                  NetworkInterface(hostname="oob-mgmt-switch",
+                                                   interface_name=mgmt_port)))
 
         # Look at all the hosts in the inventory and connect eth0 to the management switch
         for hostname, node_object in self.node_collection.iteritems():
@@ -538,10 +563,11 @@ class Inventory(object):
             # Create the oob-switch links and assign IPs to the hosts.
             if "mgmt_ip" in node_object.other_attributes:
                 mgmt_port = "swp" + str(mgmt_switch_port_count)
-                self.add_edge(NetworkEdge(NetworkInterface(hostname=hostname, interface_name="eth0",
-                                                           ip=node_object.other_attributes["mgmt_ip"]),
-                                          NetworkInterface(hostname="oob-mgmt-switch",
-                                                           interface_name=mgmt_port)))
+                self.add_edge(NetworkEdge(
+                    NetworkInterface(hostname=hostname, interface_name="eth0",
+                                     ip=node_object.other_attributes["mgmt_ip"]),
+                    NetworkInterface(hostname="oob-mgmt-switch",
+                                     interface_name=mgmt_port)))
             else:
                 if current_lease > dhcp_pool_size:
                     print(styles.FAIL + styles.BOLD +
@@ -549,8 +575,11 @@ class Inventory(object):
                           "network exceeds DCHP pool size (" + str(dhcp_pool_size) + ")")
                     exit(1)
 
-                self.add_edge(NetworkEdge(NetworkInterface(hostname=hostname, interface_name="eth0", ip=str(oob_server_ip.network[current_lease])),
-                                          NetworkInterface(hostname="oob-mgmt-switch", interface_name="swp" + str(mgmt_switch_port_count))))
+                self.add_edge(NetworkEdge(
+                    NetworkInterface(hostname=hostname, interface_name="eth0",
+                                     ip=str(oob_server_ip.network[current_lease])),
+                    NetworkInterface(hostname="oob-mgmt-switch",
+                                     interface_name="swp" + str(mgmt_switch_port_count))))
                 current_lease += 1
 
 # A class for this may not be the best thing,
@@ -583,7 +612,7 @@ class ParseGraphvizTopology(object):
         try:
             graphviz_topology = pydotplus.graphviz.graph_from_dot_file(topology_file)
 
-        except Exception:  # pragma: no cover
+        except Exception:  # pragma: no cover # pylint: disable=W0703
             # Two known ways to get here:
             # 1.) The file changed or was deleted between lint_topology_file() and graphviz call
             # 2.) lint topo file should be extended to handle missed failure.
@@ -602,11 +631,11 @@ class ParseGraphvizTopology(object):
             graphviz_nodes = graphviz_topology.get_node_list()
             graphviz_edges = graphviz_topology.get_edge_list()
 
-        except Exception as e:  # pragma: no cover
+        except Exception as exception:  # pragma: no cover # pylint: disable=W0703
             # Like the previous exception
             # if this is hit, it's either a corner, like file change
             # or we need to expand the linter
-            print e
+            print exception
             print(styles.FAIL + styles.BOLD +
                   " ### ERROR: There is a syntax error in your topology file \
                   (%s). Read the error output above for any clues as to the source."
@@ -623,8 +652,8 @@ class ParseGraphvizTopology(object):
 
         return self
 
-
-    def lint_topology_file(self, topology_file):
+    @staticmethod
+    def lint_topology_file(topology_file):
         """Validate the contents of the .dot topology file
 
         This is a simple linter for dot files to help identify
@@ -685,7 +714,7 @@ class ParseGraphvizTopology(object):
                                   % (count, line) + styles.ENDC)
 
                             return False
-        except Exception:
+        except Exception: # pylint: disable=W0703
             print(styles.FAIL + styles.BOLD +
                   "Problem opening file, " + topology_file + " perhaps it doesn't exist?" +
                   styles.ENDC)
@@ -693,8 +722,8 @@ class ParseGraphvizTopology(object):
 
         return True
 
-
-    def create_edge_from_graphviz(self, graphviz_edge):
+    @staticmethod
+    def create_edge_from_graphviz(graphviz_edge):
         """Take in a graphviz edge object and
         returns a new NetworkEdge object
         """
@@ -709,8 +738,10 @@ class ParseGraphvizTopology(object):
         right_mac = graphviz_edge.get("right_mac")
         right_pxe = graphviz_edge.get("right_pxebootinterface")
 
-        left = NetworkInterface(hostname=left_hostname, interface_name=left_interface, mac=left_mac)
-        right = NetworkInterface(hostname=right_hostname, interface_name=right_interface, mac=right_mac)
+        left = NetworkInterface(hostname=left_hostname,
+                                interface_name=left_interface, mac=left_mac)
+        right = NetworkInterface(hostname=right_hostname,
+                                 interface_name=right_interface, mac=right_mac)
 
         if left_pxe:
             left.pxe_priority = 1
@@ -738,8 +769,8 @@ class ParseGraphvizTopology(object):
 
         return NetworkEdge(left, right)
 
-
-    def create_node_from_graphviz(self, graphviz_node):
+    @staticmethod
+    def create_node_from_graphviz(graphviz_node):
         """Returns a NetworkNode object from a graphviz node object
         """
         hostname = graphviz_node.get_name().replace('"', '')
@@ -777,14 +808,16 @@ class ParseGraphvizTopology(object):
 
             # For any unhandled attributes, pass them through unmodified
             else:
-                other_attributes.update({attribute_key.replace("\"", ""): graphviz_attributes[attribute_key].replace("\"", "")})
+                other_attributes.update({attribute_key.replace("\"", ""):
+                                         graphviz_attributes[attribute_key].replace("\"", "")})
 
             if attribute_key == "pxehost":
                 pxehost = True
 
         # Verify that they provided an OS for devices that aren't pxehost
         if vm_os is None and not pxehost:
-            print(styles.FAIL + styles.BOLD + " ### ERROR: OS not provided for " + hostname + styles.ENDC)
+            print styles.FAIL + styles.BOLD + \
+                  " ### ERROR: OS not provided for " + hostname + styles.ENDC
             exit(1)
 
         return NetworkNode(hostname=hostname, function=function, vm_os=vm_os, memory=memory,
@@ -905,7 +938,7 @@ def parse_arguments():
 ###################################
 
 # # The starting MAC for assignment for any devices not in mac_map
-# # Cumulus Range ( https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux )
+# # Cumulus Range ( https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux ) # pylint: disable=C0301
 # start_mac = "443839000000"
 
 # # This file is generated to store the mapping between macs and mgmt interfaces
@@ -1203,19 +1236,23 @@ def parse_arguments():
 
 
 def main():
+    """Main point of entry to parse a topology file,
+    build an inventory and product a Vagrantfile
+    """
     cli = parse_arguments()
     cli_args = cli.parse_args()
 
-    print(styles.HEADER + "\n######################################")
-    print(styles.HEADER + "          Topology Converter")
-    print(styles.HEADER + "######################################")
-    print(styles.BLUE + "           originally written by Eric Pulvino")
+    print styles.HEADER + "\n######################################"
+    print styles.HEADER + "          Topology Converter"
+    print styles.HEADER + "######################################"
+    print styles.BLUE + "           originally written by Eric Pulvino"
 
-    parsed_topology = ParseGraphvizTopology(cli_args.topology_file)
+    parser = ParseGraphvizTopology()
+    parsed_topology = parser.parse_topology(cli_args.topology_file)
     inventory = Inventory(parsed_topology, cli_args)
 
     if cli_args.create_mgmt_device:
-        inventory = build_mgmt_network(inventory)
+        inventory.build_mgmt_network()
 
     # devices = populate_data_structures(inventory)
 

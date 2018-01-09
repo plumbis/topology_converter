@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import topology_converter as tc
-from nose.tools import raises, with_setup
+from nose.tools import raises
 
 class TestNetworkInterface:
 
@@ -448,3 +448,262 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].local_port == \
                self.inventory.node_collection["leaf03"].interfaces["swp49"].remote_port
 
+    def test_build_mgmt_network_virtualbox(self):
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "virtualbox"
+        self.inventory.add_parsed_topology(parser)
+
+        self.inventory.build_mgmt_network()
+
+        assert len(self.inventory.node_collection) == 7
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].network is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].network is not None
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].network == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].network
+
+        # The order of links isn't easy to determine since the inventory is a dict
+        # So pull everyone's eth0 network
+        # And then pull all the networks from oob-mgmt-switch
+        # and make sure everyon is connected to the oob-mgmt-switch
+        inventory_networks = []
+        oob_networks = []
+        for hostname, node_object in self.inventory.node_collection.iteritems():
+            if hostname == "oob-mgmt-server":
+                continue
+            if hostname == "oob-mgmt-switch":
+                for interface in node_object.interfaces.keys():
+                    oob_networks.append(node_object.interfaces[interface].network)
+            else:
+                inventory_networks.append(node_object.interfaces["eth0"].network)
+
+        for network in inventory_networks:
+            assert network in oob_networks
+
+    def test_build_mgmt_network_libvirt(self):
+        """Test building an oob network with the libvirt provider
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        self.inventory.build_mgmt_network()
+
+        assert len(self.inventory.node_collection) == 7
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+
+
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port
+
+        # The order of links isn't easy to determine since the inventory is a dict
+        # So pull everyone's eth0 network
+        # And then pull all the networks from oob-mgmt-switch
+        # and make sure everyon is connected to the oob-mgmt-switch
+        inventory_local_ports = []
+        inventory_remote_ports = []
+        oob_local_ports = []
+        oob_remote_ports = []
+
+        for hostname, node_object in self.inventory.node_collection.iteritems():
+            if hostname == "oob-mgmt-server":
+                continue
+            if hostname == "oob-mgmt-switch":
+                for interface in node_object.interfaces.keys():
+                    oob_local_ports.append(node_object.interfaces[interface].local_port)
+                    oob_remote_ports.append(node_object.interfaces[interface].remote_port)
+            else:
+                inventory_local_ports.append(node_object.interfaces["eth0"].local_port)
+                inventory_remote_ports.append(node_object.interfaces["eth0"].remote_port)
+
+        for local_port in inventory_local_ports:
+            assert local_port in oob_remote_ports
+
+        for remote_port in inventory_remote_ports:
+            assert remote_port in oob_local_ports
+
+    def test_build_mgmt_network_existing_oob_server(self):
+        """Test building an oob network when the oob-server is already defined
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server")
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+        assert len(self.inventory.node_collection) == 7
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+
+
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port
+
+        # The order of links isn't easy to determine since the inventory is a dict
+        # So pull everyone's eth0 network
+        # And then pull all the networks from oob-mgmt-switch
+        # and make sure everyon is connected to the oob-mgmt-switch
+        inventory_local_ports = []
+        inventory_remote_ports = []
+        oob_local_ports = []
+        oob_remote_ports = []
+
+        for hostname, node_object in self.inventory.node_collection.iteritems():
+            if hostname == "oob-mgmt-server":
+                continue
+            if hostname == "oob-mgmt-switch":
+                for interface in node_object.interfaces.keys():
+                    oob_local_ports.append(node_object.interfaces[interface].local_port)
+                    oob_remote_ports.append(node_object.interfaces[interface].remote_port)
+            else:
+                inventory_local_ports.append(node_object.interfaces["eth0"].local_port)
+                inventory_remote_ports.append(node_object.interfaces["eth0"].remote_port)
+
+        for local_port in inventory_local_ports:
+            assert local_port in oob_remote_ports
+
+        for remote_port in inventory_remote_ports:
+            assert remote_port in oob_local_ports
+
+    def test_build_mgmt_network_existing_oob_switch(self):
+        """Test building an oob network when the oob-switch is already defined
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-switch", function="oob-switch")
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+        assert len(self.inventory.node_collection) == 7
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+
+
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port
+
+        # The order of links isn't easy to determine since the inventory is a dict
+        # So pull everyone's eth0 network
+        # And then pull all the networks from oob-mgmt-switch
+        # and make sure everyon is connected to the oob-mgmt-switch
+        inventory_local_ports = []
+        inventory_remote_ports = []
+        oob_local_ports = []
+        oob_remote_ports = []
+
+        for hostname, node_object in self.inventory.node_collection.iteritems():
+            if hostname == "oob-mgmt-server":
+                continue
+            if hostname == "oob-mgmt-switch":
+                for interface in node_object.interfaces.keys():
+                    oob_local_ports.append(node_object.interfaces[interface].local_port)
+                    oob_remote_ports.append(node_object.interfaces[interface].remote_port)
+            else:
+                inventory_local_ports.append(node_object.interfaces["eth0"].local_port)
+                inventory_remote_ports.append(node_object.interfaces["eth0"].remote_port)
+
+        for local_port in inventory_local_ports:
+            assert local_port in oob_remote_ports
+
+        for remote_port in inventory_remote_ports:
+            assert remote_port in oob_local_ports
+
+
+    def test_build_mgmt_network_static_ip(self):
+        """Test building an oob network when the oob-server is already defined
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="leaf99", function="leaf",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.1.1"})
+
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+        assert len(self.inventory.node_collection) == 8
+        assert self.inventory.node_collection["leaf99"].interfaces["eth0"].ip == "192.168.1.1"
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+
+
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port
+
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port == \
+               self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port
+
+        # The order of links isn't easy to determine since the inventory is a dict
+        # So pull everyone's eth0 network
+        # And then pull all the networks from oob-mgmt-switch
+        # and make sure everyon is connected to the oob-mgmt-switch
+        inventory_local_ports = []
+        inventory_remote_ports = []
+        oob_local_ports = []
+        oob_remote_ports = []
+
+        for hostname, node_object in self.inventory.node_collection.iteritems():
+            if hostname == "oob-mgmt-server":
+                continue
+            if hostname == "oob-mgmt-switch":
+                for interface in node_object.interfaces.keys():
+                    oob_local_ports.append(node_object.interfaces[interface].local_port)
+                    oob_remote_ports.append(node_object.interfaces[interface].remote_port)
+            else:
+                inventory_local_ports.append(node_object.interfaces["eth0"].local_port)
+                inventory_remote_ports.append(node_object.interfaces["eth0"].remote_port)
+
+        for local_port in inventory_local_ports:
+            assert local_port in oob_remote_ports
+
+        for remote_port in inventory_remote_ports:
+            assert remote_port in oob_local_ports

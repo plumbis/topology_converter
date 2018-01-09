@@ -63,11 +63,12 @@ class TestNetworkInterface:
         output.append("Network: " + interface.network)
         output.append("Libvirt localport: " + interface.local_port)
         output.append("Libvirt remote port: " + interface.remote_port)
+        output.append("PXE Priority: " + "0")
         output.append("Attributes: " + str({}))
 
         assert str(interface) == "\n".join(output)
 
-    def test_print_none_hostname_interface(self):
+    def test_print_none_hostname(self):
         interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
 
         interface.hostname = None
@@ -79,11 +80,12 @@ class TestNetworkInterface:
         output.append("Network: " + "None")
         output.append("Libvirt localport: " + "None")
         output.append("Libvirt remote port: " + "None")
+        output.append("PXE Priority: " + "0")
         output.append("Attributes: " + str({}))
 
         assert str(interface) == "\n".join(output)
 
-    def test_print_none_interface_interface(self):
+    def test_print_none_interface(self):
         interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
 
         interface.interface_name = None
@@ -95,6 +97,7 @@ class TestNetworkInterface:
         output.append("Network: " + "None")
         output.append("Libvirt localport: " + "None")
         output.append("Libvirt remote port: " + "None")
+        output.append("PXE Priority: " + "0")
         output.append("Attributes: " + str({}))
 
         assert str(interface) == "\n".join(output)
@@ -103,6 +106,7 @@ class TestNetworkInterface:
         interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
 
         interface.hostname = None
+
         output = []
         output.append("Hostname: " + "None")
         output.append("interface_name: " + interface.interface_name)
@@ -111,6 +115,7 @@ class TestNetworkInterface:
         output.append("Network: " + "None")
         output.append("Libvirt localport: " + "None")
         output.append("Libvirt remote port: " + "None")
+        output.append("PXE Priority: " + "0")
         output.append("Attributes: " + str({}))
 
         assert str(interface) == "\n".join(output)
@@ -127,6 +132,25 @@ class TestNetworkInterface:
         output.append("Network: " + "None")
         output.append("Libvirt localport: " + "None")
         output.append("Libvirt remote port: " + "None")
+        output.append("PXE Priority: " + "0")
         output.append("Attributes: " + "None")
+
+        assert str(interface) == "\n".join(output)
+
+
+    def test_print_none_pxe(self):
+        interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
+
+        interface.pxe_priority = None
+        output = []
+        output.append("Hostname: " + interface.hostname)
+        output.append("interface_name: " + interface.interface_name)
+        output.append("IP: " + "None")
+        output.append("MAC: " + "None")
+        output.append("Network: " + "None")
+        output.append("Libvirt localport: " + "None")
+        output.append("Libvirt remote port: " + "None")
+        output.append("PXE Priority: " + "None")
+        output.append("Attributes: " + str({}))
 
         assert str(interface) == "\n".join(output)

@@ -3,7 +3,7 @@ import os
 import re
 import argparse
 import pydotplus
-# import ipaddress
+import ipaddress
 # import sys
 # import time
 # import pprint
@@ -100,6 +100,8 @@ class NetworkNode:
         self.interfaces = {}
         self.os_version = os_version
         self.other_attributes = other_attributes
+        self.pxehost = "pxehost" in other_attributes
+        self.has_pxe_interface = False
 
     def check_hostname(self, hostname):
         """Simple hostname validation.
@@ -161,6 +163,22 @@ class NetworkNode:
     def add_interface(self, network_interface):
         """Adds a NetworkInterface object to the interface collection. Returns the updated NetworkNode object.
         """
+
+        # Check if any interface in this node is a pxe interface
+        # and make sure there isn't a second interface
+        # trying to be a pxe interface.
+        if self.has_pxe_interface and network_interface.pxe_priority > 0:
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR -- Device " + self.hostname +
+                  " sets pxebootinterface more than once." +
+                  styles.ENDC)
+            exit(1)
+
+        # If this is the first time we've seen a pxe interface
+        # then flip the flag on the Node
+        elif network_interface.pxe_priority > 0:
+            self.has_pxe_interface = True
+
         self.interfaces[network_interface.interface_name] = network_interface
 
         return self
@@ -189,7 +207,7 @@ class NetworkInterface:
         self.local_port = local_port
         self.remote_port = remote_port
         self.attributes = {}
-
+        self.pxe_priority = 0
 
     # def add_mac_colon(self, mac_address, cli_args):
     #     if cli_args.verbose:
@@ -280,6 +298,7 @@ class NetworkInterface:
         output.append("Network: " + (self.network or "None"))
         output.append("Libvirt localport: " + (self.local_port or "None"))
         output.append("Libvirt remote port: " + (self.remote_port or "None"))
+        output.append("PXE Priority: " + str(self.pxe_priority) or "None")
         output.append("Attributes: " + (str(self.attributes) or "None"))
 
         return "\n".join(output)
@@ -305,6 +324,8 @@ class Inventory:
         # current_mac default is based on Cumulus Networks mac range
         # https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux
         self.current_mac = "0x443839000000"
+        self.oob_server = None
+        self.oob_switch = None
 
 
     def add_node(self, node):
@@ -327,6 +348,22 @@ class Inventory:
 
                 exit(1)
 
+        if node.function == "oob-server":
+            self.oob_server = node
+        elif node.function == "oob-switch":
+            self.oob_switch = node
+
+        if node.hostname == "oob-mgmt-server" and self.oob_server is None:
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: oob-mgmt-server must be set to function = \"oob-server\"" +
+                  styles.ENDC)
+            exit(1)
+
+        if node.hostname == "oob-mgmt-switch" and self.oob_switch is None:
+            print(styles.FAIL + styles.BOLD +
+                  "### ERROR: oob-mgmt-switch must be set to function = \"oob-switch\""
+                  + styles.ENDC)
+            exit(1)
         self.node_collection[node.hostname] = node
 
         return self
@@ -360,6 +397,7 @@ class Inventory:
                 # Get a MAC address for the interface, if it doesn't already have one
                 if side.mac is None:
                     side.mac = self.get_mac(side)
+
 
         # Build the network links for virtualbox
         if self.provider == "virtualbox":
@@ -426,6 +464,68 @@ class Inventory:
             self.add_edge(edge)
 
         return self
+
+
+    def build_mgmt_network(self):
+        #### TODO: Take in cli_args and support custom IP range, dhcp pool sizes
+        oob_server_ip = ipaddress.ip_interface(u'192.168.200.254/24')
+        oob_subnet = oob_server_ip.network[0]
+        oob_cidrmask = oob_server_ip.network.prefixlen
+        oob_netmask = oob_server_ip.netmask
+        mgmt_switch_port_count = 1
+        current_lease = 10
+        dhcp_pool_size = 40
+
+        try:
+            dhcp_start = oob_server_ip.network[current_lease]
+            dhcp_end = oob_server_ip.network[dhcp_pool_size + current_lease]
+
+        except IndexError:
+            print(styles.FAIL + styles.BOLD +
+                  " ### ERROR: Prefix Length on the Out Of Band Server is " +
+                  "not big enough to support usage of the 10th-50th IP " +
+                  "addresses being used for DHCP")
+            exit(1)
+
+        # Create the oob server and switch
+        oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server")
+        oob_switch = NetworkNode(hostname="oob-mgmt-switch", function="oob-switch")
+
+        # Add the oob server and switch to the inventory
+        self.add_node(oob_server)
+        self.add_node(oob_switch)
+
+        # Connect the oob server and switch
+        mgmt_port = "swp" + str(mgmt_switch_port_count)
+        self.add_edge(NetworkEdge(NetworkInterface(hostname="oob-mgmt-server", interface_name="eth1", ip=str(oob_server_ip)),
+                                  NetworkInterface(hostname="oob-mgmt-switch", interface_name=mgmt_port)))
+
+        # Look at all the hosts in the inventory and connect eth0 to the management switch
+        for hostname, node_object in self.node_collection.iteritems():
+            # Increment the oob switch port count
+            mgmt_switch_port_count += 1
+            if node_object.get_interface("eth0") is not None:
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: " + hostname + " eth0 interface already exists. " +
+                      "Management network expect eth0 to not be connected")
+                exit(1)
+
+            # Create the oob-switch links and assign IPs to the hosts.
+            if "mgmt_ip" in node_object.other_attributes:
+                mgmt_port = "swp" + str(mgmt_switch_port_count)
+                self.add_edge(NetworkEdge(NetworkInterface(hostname=hostname, interface_name="eth0",
+                                                           ip=node_object.other_attributes["mgmt_ip"]),
+                                          NetworkInterface(hostname="oob-mgmt-switch",
+                                                           interface_name=mgmt_port)))
+            else:
+                if current_lease > dhcp_pool_size:
+                    print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: Number of devices in management network exceeds DCHP pool size (" + str(dhcp_pool_size) + ")")
+                    exit(1)
+
+                self.add_edge(NetworkEdge(NetworkInterface(hostname=hostname, interface_name="eth0", ip=str(oob_server_ip.network[current_lease])),
+                                          NetworkInterface(hostname="oob-mgmt-switch", interface_name="swp" + str(mgmt_switch_port_count))))
+                current_lease += 1
 
 # A class for this may not be the best thing,
 # but seems easier than stand alone methods
@@ -576,13 +676,21 @@ class ParseGraphvizTopology:
         left_hostname = graphviz_edge.get_source().split(":")[0].replace('"', '')
         left_interface = graphviz_edge.get_source().split(":")[1].replace('"', '')
         left_mac = graphviz_edge.get("left_mac")
+        left_pxe = graphviz_edge.get("left_pxebootinterface")
 
         right_hostname = graphviz_edge.get_destination().split(":")[0].replace('"', '')
         right_interface = graphviz_edge.get_destination().split(":")[1].replace('"', '')
         right_mac = graphviz_edge.get("right_mac")
+        right_pxe = graphviz_edge.get("right_pxebootinterface")
 
         left = NetworkInterface(hostname=left_hostname, interface_name=left_interface, mac=left_mac)
         right = NetworkInterface(hostname=right_hostname, interface_name=right_interface, mac=right_mac)
+
+        if left_pxe:
+            left.pxe_priority = 1
+
+        if right_pxe:
+            right.pxe_priority = 1
 
         # Process passthrough attributes
         for attribute in graphviz_edge.get_attributes():
@@ -623,6 +731,7 @@ class ParseGraphvizTopology:
         memory = None
         config = None
         other_attributes = {}
+        pxehost = False
 
         for attribute_key in graphviz_attributes.keys():
             if attribute_key == "os":
@@ -644,8 +753,11 @@ class ParseGraphvizTopology:
             else:
                 other_attributes.update({attribute_key.replace("\"", ""): graphviz_attributes[attribute_key].replace("\"", "")})
 
-        # Verify that they provided an OS
-        if vm_os is None:
+            if attribute_key == "pxehost":
+                pxehost = True
+
+        # Verify that they provided an OS for devices that aren't pxehost
+        if vm_os is None and not pxehost:
             print(styles.FAIL + styles.BOLD + " ### ERROR: OS not provided for " + hostname + styles.ENDC)
             exit(1)
 
@@ -1452,9 +1564,8 @@ def main():
     parsed_topology = ParseGraphvizTopology(cli_args.topology_file)
     inventory = Inventory(parsed_topology, cli_args)
 
-
-    # if cli_args.create_mgmt_device:
-    #     inventory = build_mgmt_network(inventory, cli_args)
+    if cli_args.create_mgmt_device:
+        inventory = build_mgmt_network(inventory)
 
     # devices = populate_data_structures(inventory)
 

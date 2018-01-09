@@ -150,6 +150,35 @@ class Test_NetworkNode:
         assert result_interface.mac == None
         assert result_interface.ip == None
 
+    def test_add_interface_first_pxe(self):
+        """Test adding a pxe interface to a host
+        """
+        interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
+        interface.pxe_priority = 1
+
+        self.node.add_interface(interface)
+        result_interface = self.node.interfaces["swp51"]
+        assert result_interface.hostname == "leaf01"
+        assert result_interface.interface_name == "swp51"
+        assert result_interface.mac == None
+        assert result_interface.ip == None
+        assert self.node.has_pxe_interface
+
+
+    @raises(SystemExit)
+    def test_add_interface_two_pxe(self):
+        """Test adding a second pxe interface to a host
+        """
+        interface1 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
+        interface1.pxe_priority = 1
+
+        interface2 = tc.NetworkInterface(hostname="leaf01", interface_name="swp52", mac=None, ip=None)
+        interface2.pxe_priority = 1
+
+        self.node.add_interface(interface1)
+        self.node.add_interface(interface2)
+
+
     def test_str_all_values(self):
         interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
 

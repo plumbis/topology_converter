@@ -120,6 +120,30 @@ class TestParseTopology:
         assert edge_result.left_side.attributes == left_interface.attributes
         assert edge_result.right_side.attributes == right_interface.attributes
 
+    def test_create_edge_from_graphviz_left_pxe(self):
+        # "leaf01":"swp51" -- "spine01":"swp1" [left_mac="00:03:00:11:11:01"]
+        graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
+        graphviz_edge.obj_dict["attributes"]["left_pxebootinterface"] = "True"
+
+        edge_result = self.topology_object.create_edge_from_graphviz(graphviz_edge)
+
+        print edge_result.right_side
+        assert edge_result.left_side.pxe_priority == 1
+        assert edge_result.right_side.pxe_priority == 0
+
+
+    def test_create_edge_from_graphviz_right_pxe(self):
+        # "leaf01":"swp51" -- "spine01":"swp1" [left_mac="00:03:00:11:11:01"]
+        graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
+        graphviz_edge.obj_dict["attributes"]["right_pxebootinterface"] = "True"
+
+        edge_result = self.topology_object.create_edge_from_graphviz(graphviz_edge)
+
+        print edge_result.right_side
+        assert edge_result.left_side.pxe_priority == 0
+        assert edge_result.right_side.pxe_priority == 1
+
+
     def test_generic_left_attribute(self):
         # "leaf01":"swp51" -- "spine01":"swp1" [right_mac="00:03:00:11:11:01"]
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp5\"")

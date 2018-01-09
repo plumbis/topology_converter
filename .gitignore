@@ -10,3 +10,4 @@ venv/
 .idea/
 ./tests/*.pyc
 .vscode/
+.noseids

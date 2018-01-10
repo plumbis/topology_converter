@@ -20,7 +20,8 @@ import pydotplus
 
 VERSION = "4.6.5"
 
-class styles(object):
+
+class styles(object):# pylint: disable=C0103, R0903
     """Defines the terminal text colors for messages
     """
     HEADER = '\033[95m'
@@ -509,6 +510,27 @@ class Inventory(object):
 
         return self
 
+    @staticmethod
+    def get_oob_ip(oob_server):
+        """Determine the correct IP for the oob server.
+        Either the user provided IP or 192.168.200.254/24
+        """
+        if "mgmt_ip" in oob_server.other_attributes:
+            try:
+                # If the netmask isn't provided, assume /24
+                if oob_server.other_attributes["mgmt_ip"].find("/") < 0:
+                    return ipaddress.ip_interface(
+                        unicode(oob_server.other_attributes["mgmt_ip"] + "/24"))
+
+                # If they set the management IP manually
+                # on the existing server, use that one
+                return ipaddress.ip_interface(unicode(oob_server.other_attributes["mgmt_ip"]))
+            except Exception:  # pylint: disable=W0703
+                print(styles.FAIL + styles.BOLD +
+                        "Configured oob-mgmt-server management IP is invalid")
+                exit(1)
+
+        return ipaddress.ip_interface(u'192.168.200.254/24')
 
     def build_mgmt_network(self):
         """Build a management network and add it to the inventory.
@@ -534,7 +556,7 @@ class Inventory(object):
         else:
             oob_switch = self.get_node_by_name("oob-mgmt-switch")
 
-        oob_server_ip = get_oob_ip(oob_server)
+        oob_server_ip = self.get_oob_ip(oob_server)
 
         # Add the oob server and switch to the inventory
         self.add_node(oob_server)
@@ -561,7 +583,7 @@ class Inventory(object):
                     # or assume /24
                     if node_object.other_attributes["mgmt_ip"].find("/") < 0:
                         node_ip = ipaddress.ip_interface(
-                                    unicode(node_object.other_attributes["mgmt_ip"] + "/24"))
+                            unicode(node_object.other_attributes["mgmt_ip"] + "/24"))
                     else:
                         node_ip = ipaddress.ip_interface(node_object.other_attributes["mgmt_ip"])
                 except Exception: # pylint: disable=W0703
@@ -598,27 +620,6 @@ class Inventory(object):
                                      interface_name="swp" + str(mgmt_switch_port_count))))
                 current_lease += 1
 
-        @staticmethod
-        def get_oob_ip(oob_server):
-            """Determine the correct IP for the oob server.
-            Either the user provided IP or 192.168.200.254/24
-            """
-            if "mgmt_ip" in oob_server.other_attributes:
-                try:
-                    # If the netmask isn't provided, assume /24
-                    if oob_server.other_attributes["mgmt_ip"].find("/") < 0:
-                        return ipaddress.ip_interface(
-                            unicode(oob_server.other_attributes["mgmt_ip"] + "/24"))
-
-                    # If they set the management IP manually
-                    # on the existing server, use that one
-                    return ipaddress.ip_interface(unicode(oob_server.other_attributes["mgmt_ip"]))
-                except Exception:  # pylint: disable=W0703
-                    print(styles.FAIL + styles.BOLD +
-                          "Configured oob-mgmt-server management IP is invalid")
-                    exit(1)
-
-            return ipaddress.ip_interface(u'192.168.200.254/24')
 
 # A class for this may not be the best thing,
 # but seems easier than stand alone methods
@@ -715,7 +716,7 @@ class ParseGraphvizTopology(object):
                 for line in line_list:
                     count += 1
                     # Try to encode into ascii
-                    # TODO: understand if UTF-8 support is possible
+                    # TODO: understand if UTF-8 support is possible  # pylint: disable=W0511
                     # seems supported by pydot
                     try:
                         line.encode('ascii', 'ignore')
@@ -950,7 +951,7 @@ def parse_arguments():
 
 
 ############
-## TODO
+## TODO   # pylint: disable=W0511
 ############
 
 # Parse Arguments

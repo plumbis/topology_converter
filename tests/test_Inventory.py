@@ -1,18 +1,25 @@
 #!/usr/bin/env python
+"""Test suite for the NetworkInterface topology converter object
+"""
+# pylint: disable=C0103, W0201
 
-import topology_converter as tc
 from nose.tools import raises
+import topology_converter as tc
 
-class TestNetworkInterface:
+class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
+    """Test suite for the NetworkInterface() topology converter object
+    """
 
     def setup(self):
+        """Test setup. Start with a blank Inventory object
+        """
         self.inventory = tc.Inventory()
-
 
     def test_add_node_virtualbox(self):
         """Test adding a valid node with a virtualbox provider
         """
-        self.inventory.provider == "virtualbox"
+        self.inventory.provider == "virtualbox" # pylint: disable=W0104
+
 
         test_node = tc.NetworkNode(hostname="leaf01", function="leaf",
                                    vm_os="CumulusCommunity/cumulus-vx",
@@ -116,16 +123,22 @@ class TestNetworkInterface:
         assert self.inventory.get_mac() == "0x443839000002"
 
     def test_add_edge_virtualbox(self):
+        """Test adding an edge when the provider is virtualbox
+        """
         leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
 
         leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
 
-        leaf01_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        leaf02_interface = tc.NetworkInterface(hostname="leaf02", interface_name="swp51", mac=None, ip=None )
+        leaf01_interface = tc.NetworkInterface(hostname="leaf01",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
 
         test_edge = tc.NetworkEdge(leaf01_interface, leaf02_interface)
 
@@ -154,20 +167,30 @@ class TestNetworkInterface:
         # Ensure we set the ports and they line up
         assert inventory_leaf01.interfaces["swp51"].network is not None
         assert inventory_leaf02.interfaces["swp51"].network is not None
-        assert inventory_leaf01.interfaces["swp51"].network == inventory_leaf02.interfaces["swp51"].network
+        assert inventory_leaf01.interfaces["swp51"].network == \
+               inventory_leaf02.interfaces["swp51"].network
 
 
     def test_add_edge_libvirt(self):
+        """Test adding an edge when the provider is libvirt
+        """
         leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768",
+                                     config="./helper_scripts/oob_switch_config.sh")
 
         leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768",
+                                     config="./helper_scripts/oob_switch_config.sh")
 
-        leaf01_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        leaf02_interface = tc.NetworkInterface(hostname="leaf02", interface_name="swp51", mac=None, ip=None )
+        leaf01_interface = tc.NetworkInterface(hostname="leaf01",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
+
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
 
         test_edge = tc.NetworkEdge(leaf01_interface, leaf02_interface)
 
@@ -198,24 +221,36 @@ class TestNetworkInterface:
         assert inventory_leaf02.interfaces["swp51"].remote_port is not None
         assert inventory_leaf01.interfaces["swp51"].remote_port is not None
         assert inventory_leaf02.interfaces["swp51"].local_port is not None
-        assert inventory_leaf01.interfaces["swp51"].local_port == inventory_leaf02.interfaces["swp51"].remote_port
-        assert inventory_leaf01.interfaces["swp51"].remote_port == inventory_leaf02.interfaces["swp51"].local_port
+        assert inventory_leaf01.interfaces["swp51"].local_port == \
+               inventory_leaf02.interfaces["swp51"].remote_port
+        assert inventory_leaf01.interfaces["swp51"].remote_port == \
+               inventory_leaf02.interfaces["swp51"].local_port
 
 
     @raises(SystemExit)
     def test_add_edge_duplicate_interface(self):
+        """Test adding a duplicate edge causes program exit
+        """
         leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
 
         leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
 
-        leaf01_interface1 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        leaf02_interface1 = tc.NetworkInterface(hostname="leaf02", interface_name="swp51", mac=None, ip=None )
-        leaf01_interface2 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        leaf02_interface2 = tc.NetworkInterface(hostname="leaf02", interface_name="swp52", mac=None, ip=None )
+        leaf01_interface1 = tc.NetworkInterface(hostname="leaf01",
+                                                interface_name="swp51",
+                                                mac=None, ip=None)
+        leaf02_interface1 = tc.NetworkInterface(hostname="leaf02",
+                                                interface_name="swp51",
+                                                mac=None, ip=None)
+        leaf01_interface2 = tc.NetworkInterface(hostname="leaf01",
+                                                interface_name="swp51",
+                                                mac=None, ip=None)
+        leaf02_interface2 = tc.NetworkInterface(hostname="leaf02",
+                                                interface_name="swp52",
+                                                mac=None, ip=None)
 
         test_edge1 = tc.NetworkEdge(leaf01_interface1, leaf02_interface1)
         test_edge2 = tc.NetworkEdge(leaf01_interface2, leaf02_interface2)
@@ -230,16 +265,23 @@ class TestNetworkInterface:
 
     @raises(SystemExit)
     def test_port_gap_too_short(self):
+        """Test that not providing enough of a port gap for libvirt causes program exit
+        """
         leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
 
         leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh")
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
 
-        leaf01_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        leaf02_interface = tc.NetworkInterface(hostname="leaf02", interface_name="swp51", mac=None, ip=None )
+        leaf01_interface = tc.NetworkInterface(hostname="leaf01",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
+
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
 
         test_edge = tc.NetworkEdge(leaf01_interface, leaf02_interface)
 
@@ -250,11 +292,11 @@ class TestNetworkInterface:
 
         self.inventory.add_edge(test_edge)
 
-        self.inventory.node_collection["leaf01"]
-        self.inventory.node_collection["leaf02"]
+        self.inventory.node_collection["leaf01"] # pylint: disable=W0104
+        self.inventory.node_collection["leaf02"] # pylint: disable=W0104
 
 
-    def test_add_parsed_topology_virtualbox(self):
+    def test_add_parsed_topology_virtualbox(self):  # pylint: disable=R0915
         """Test parsing a Graphviz topology file.
         Uses tests/dot_files/simple.dot as the test file
         """
@@ -281,7 +323,7 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf01"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf01"].interfaces) == 2
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].hostname == "leaf01"
-        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].interface_name == "swp51" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].mac is not None
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].network == \
                self.inventory.node_collection["spine01"].interfaces["swp1"] .network
@@ -297,7 +339,7 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf02"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf02"].interfaces) == 2
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].hostname == "leaf02"
-        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].interface_name == "swp51" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].mac is not None
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].network == \
                self.inventory.node_collection["spine01"].interfaces["swp2"] .network
@@ -310,7 +352,7 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf03"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf03"].interfaces) == 2
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].hostname == "leaf03"
-        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].interface_name == "swp51" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].mac is not None
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].network == \
                self.inventory.node_collection["spine01"].interfaces["swp3"] .network
@@ -323,12 +365,12 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf04"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf04"].interfaces) == 1
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].hostname == "leaf04"
-        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].interface_name == "swp49"
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].interface_name == "swp49" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].mac is not None
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].network == \
                self.inventory.node_collection["leaf03"].interfaces["swp49"] .network
 
-    def test_add_parsed_topology_libvirt(self):
+    def test_add_parsed_topology_libvirt(self):  # pylint: disable=R0915
         """Test parsing a Graphviz topology file.
         Uses tests/dot_files/simple.dot as the test file
         """
@@ -355,7 +397,7 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf01"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf01"].interfaces) == 2
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].hostname == "leaf01"
-        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf01"].interfaces["swp51"].interface_name == "swp51" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].mac is not None
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].local_port  is not None
         assert self.inventory.node_collection["spine01"].interfaces["swp1"].remote_port is not None
@@ -380,7 +422,7 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf02"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf02"].interfaces) == 2
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].hostname == "leaf02"
-        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf02"].interfaces["swp51"].interface_name == "swp51" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].mac is not None
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].local_port  is not None
         assert self.inventory.node_collection["spine01"].interfaces["swp2"].remote_port is not None
@@ -397,7 +439,7 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf03"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf03"].interfaces) == 2
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].hostname == "leaf03"
-        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].interface_name == "swp51"
+        assert self.inventory.node_collection["leaf03"].interfaces["swp51"].interface_name == "swp51" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].mac is not None
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].local_port  is not None
         assert self.inventory.node_collection["spine01"].interfaces["swp3"].remote_port is not None
@@ -414,7 +456,7 @@ class TestNetworkInterface:
         assert self.inventory.node_collection["leaf04"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf04"].interfaces) == 1
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].hostname == "leaf04"
-        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].interface_name == "swp49"
+        assert self.inventory.node_collection["leaf04"].interfaces["swp49"].interface_name == "swp49" # pylint: disable=C0301
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].mac is not None
 
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].local_port is not None
@@ -427,6 +469,8 @@ class TestNetworkInterface:
                self.inventory.node_collection["leaf03"].interfaces["swp49"].remote_port
 
     def test_build_mgmt_network_virtualbox(self):
+        """Test building a management network when the provider is virtualbox
+        """
         parser = tc.ParseGraphvizTopology()
         parser.parse_topology("./tests/dot_files/simple.dot")
         self.inventory.provider = "virtualbox"
@@ -435,11 +479,11 @@ class TestNetworkInterface:
         self.inventory.build_mgmt_network()
 
         assert len(self.inventory.node_collection) == 7
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server" # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch" # pylint: disable=C0301
 
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].network is not None
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].network is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].network is not None # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].network is not None # pylint: disable=C0301
 
         assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].network == \
                self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].network
@@ -473,15 +517,15 @@ class TestNetworkInterface:
         self.inventory.build_mgmt_network()
 
         assert len(self.inventory.node_collection) == 7
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"  # pylint: disable=C0301
 
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None  # pylint: disable=C0301
 
 
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None  # pylint: disable=C0301
 
         assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
                self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port
@@ -528,15 +572,15 @@ class TestNetworkInterface:
         self.inventory.build_mgmt_network()
 
         assert len(self.inventory.node_collection) == 7
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"  # pylint: disable=C0301
 
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None  # pylint: disable=C0301
 
 
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None  # pylint: disable=C0301
 
         assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
                self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port
@@ -583,15 +627,15 @@ class TestNetworkInterface:
         self.inventory.build_mgmt_network()
 
         assert len(self.inventory.node_collection) == 7
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"  # pylint: disable=C0301
 
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None  # pylint: disable=C0301
 
 
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None  # pylint: disable=C0301
 
         assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
                self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port
@@ -627,7 +671,7 @@ class TestNetworkInterface:
 
 
     def test_build_mgmt_network_static_ip(self):
-        """Test building an oob network when the oob-server is already defined
+        """Test building an oob network when a management IP is defined
         """
         parser = tc.ParseGraphvizTopology()
         parser.parse_topology("./tests/dot_files/simple.dot")
@@ -637,22 +681,22 @@ class TestNetworkInterface:
         test_node = tc.NetworkNode(hostname="leaf99", function="leaf",
                                    vm_os="CumulusCommunity/cumulus-vx",
                                    memory="768", config="./helper_scripts/oob_switch_config.sh",
-                                   other_attributes={"mgmt_ip": "192.168.1.1"})
+                                   other_attributes={"mgmt_ip": "192.168.200.1"})
 
         self.inventory.add_node(test_node)
         self.inventory.build_mgmt_network()
 
         assert len(self.inventory.node_collection) == 8
-        assert self.inventory.node_collection["leaf99"].interfaces["eth0"].ip == "192.168.1.1"
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"
+        assert self.inventory.node_collection["leaf99"].interfaces["eth0"].ip == "192.168.200.1/24"
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].hostname == "oob-mgmt-server"  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].hostname == "oob-mgmt-switch"  # pylint: disable=C0301
 
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].remote_port is not None  # pylint: disable=C0301
 
 
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None
-        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].local_port is not None  # pylint: disable=C0301
+        assert self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port is not None  # pylint: disable=C0301
 
         assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].local_port == \
                self.inventory.node_collection["oob-mgmt-switch"].interfaces["swp1"].remote_port

@@ -1,10 +1,14 @@
 #!/usr/bin/env python
-
-import topology_converter as tc
+"""Test suite for topology_converter.NetworkNode class
+"""
+# pylint: disable=C0103
 from nose.tools import raises
+import topology_converter as tc
 
-class Test_NetworkNode:
-
+class Test_NetworkNode(object):
+    """Test class for NetworkNode tests
+    """
+    # pylint: disable=W0201
     def setup(self):
         """Build a basic NetworkNode
         """
@@ -16,7 +20,7 @@ class Test_NetworkNode:
         self.invalid_hostnames = [".leaf", "-leaf", "_leaf", "lea.f", "leaf.", "leaf-", " leaf"
                                   "leaf ", "le af", "   "]
 
-    def test_init(self):
+    def test_init(self):  # pylint: disable=R0201
         """Test building a NetworkNode
         """
         node = tc.NetworkNode("leaf01", "leaf", "cumuluscommunity/cumulus-vx",
@@ -46,20 +50,20 @@ class Test_NetworkNode:
         """Generator for creating NetworkNode objects with invalid hostnames
         """
         invalid_hostnames = [".leaf", "-leaf", "_leaf", "lea.f", "leaf.", "leaf-", " leaf"
-                                  "leaf ", "le af", "   "]
+                             "leaf ", "le af", "   "]
         for hostname in invalid_hostnames:
             yield self.invalid_hostname_init, hostname
 
 
     @raises(SystemExit)
-    def invalid_hostname_init(self, hostname):
+    def invalid_hostname_init(self, hostname):  # pylint: disable=R0201
         """Test that creating a NetworkNode with an invalid name exits
         """
         tc.NetworkNode(hostname, "leaf", "cumuluscommunity/cumulus-vx",
-                               "768", "./helper_scripts/oob_switch_config.sh")
+                       "768", "./helper_scripts/oob_switch_config.sh")
 
 
-    def test_fake_function_defaults(self):
+    def test_fake_function_defaults(self):  # pylint: disable=R0201
         """Test the defaults of a "fake" function
         """
         node = tc.NetworkNode("leaf01", "fake")
@@ -68,7 +72,7 @@ class Test_NetworkNode:
         assert node.memory == "1"
 
 
-    def test_oob_server_function_defaults(self):
+    def test_oob_server_function_defaults(self):  # pylint: disable=R0201
         """Test the defaults of the "oob-server" function
         """
         node = tc.NetworkNode("leaf01", "oob-server")
@@ -78,7 +82,7 @@ class Test_NetworkNode:
         assert node.config == "./helper_scripts/auto_mgmt_network/OOB_Server_Config_auto_mgmt.sh"
 
 
-    def test_oob_switch_function_defaults(self):
+    def test_oob_switch_function_defaults(self):  # pylint: disable=R0201
         """Test the defaults of the "oob-switch" funcion
         """
         node = tc.NetworkNode("leaf01", "oob-switch")
@@ -88,7 +92,7 @@ class Test_NetworkNode:
         assert node.config == "./helper_scripts/oob_switch_config.sh"
 
 
-    def test_host_function_defaults(self):
+    def test_host_function_defaults(self):  # pylint: disable=R0201
         """Test the defaults of the "host" function
         """
         node = tc.NetworkNode("server01", "host")
@@ -98,7 +102,7 @@ class Test_NetworkNode:
         assert node.config == "./helper_scripts/extra_server_config.sh"
 
 
-    def test_pxehost_function_defaults(self):
+    def test_pxehost_function_defaults(self):  # pylint: disable=R0201
         """Test the defaults of the "pxehost" function
         """
         node = tc.NetworkNode("server01", "pxehost")
@@ -131,37 +135,47 @@ class Test_NetworkNode:
         assert self.node.get_interface("swp1") is None
 
     def test_get_interface_exists(self):
-        interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
+        """Test getting an interface that exists within a node
+        """
+        interface = tc.NetworkInterface(hostname="leaf01",
+                                        interface_name="swp51",
+                                        mac=None, ip=None)
         self.node.interfaces["swp51"] = interface
 
         result_interface = self.node.get_interface("swp51")
         assert result_interface.hostname == "leaf01"
         assert result_interface.interface_name == "swp51"
-        assert result_interface.mac == None
-        assert result_interface.ip == None
+        assert result_interface.mac is None
+        assert result_interface.ip is None
 
     def test_add_interface(self):
-        interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
+        """Test adding an interface to a node
+        """
+        interface = tc.NetworkInterface(hostname="leaf01",
+                                        interface_name="swp51",
+                                        mac=None, ip=None)
 
         self.node.add_interface(interface)
         result_interface = self.node.interfaces["swp51"]
         assert result_interface.hostname == "leaf01"
         assert result_interface.interface_name == "swp51"
-        assert result_interface.mac == None
-        assert result_interface.ip == None
+        assert result_interface.mac is None
+        assert result_interface.ip is None
 
     def test_add_interface_first_pxe(self):
         """Test adding a pxe interface to a host
         """
-        interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
+        interface = tc.NetworkInterface(hostname="leaf01",
+                                        interface_name="swp51",
+                                        mac=None, ip=None)
         interface.pxe_priority = 1
 
         self.node.add_interface(interface)
         result_interface = self.node.interfaces["swp51"]
         assert result_interface.hostname == "leaf01"
         assert result_interface.interface_name == "swp51"
-        assert result_interface.mac == None
-        assert result_interface.ip == None
+        assert result_interface.mac is None
+        assert result_interface.ip is None
         assert self.node.has_pxe_interface
 
 
@@ -169,10 +183,14 @@ class Test_NetworkNode:
     def test_add_interface_two_pxe(self):
         """Test adding a second pxe interface to a host
         """
-        interface1 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
+        interface1 = tc.NetworkInterface(hostname="leaf01",
+                                         interface_name="swp51",
+                                         mac=None, ip=None)
         interface1.pxe_priority = 1
 
-        interface2 = tc.NetworkInterface(hostname="leaf01", interface_name="swp52", mac=None, ip=None)
+        interface2 = tc.NetworkInterface(hostname="leaf01",
+                                         interface_name="swp52",
+                                         mac=None, ip=None)
         interface2.pxe_priority = 1
 
         self.node.add_interface(interface1)
@@ -180,7 +198,11 @@ class Test_NetworkNode:
 
 
     def test_str_all_values(self):
-        interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None)
+        """Test that print output is as expected with all values set
+        """
+        interface = tc.NetworkInterface(hostname="leaf01",
+                                        interface_name="swp51",
+                                        mac=None, ip=None)
 
         self.node.os_version = "3.4.3"
         self.node.other_attributes = {"superspine": "True"}
@@ -199,6 +221,8 @@ class Test_NetworkNode:
         assert expected_result == str(self.node)
 
     def test_str_no_values(self):
+        """Test that string output is correct with no values set
+        """
         self.node.hostname = None
         self.node.function = None
         self.node.vm_os = None

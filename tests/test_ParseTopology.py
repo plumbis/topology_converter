@@ -1,15 +1,22 @@
 #!/usr/bin/env python
+"""Test suite for the topology_converter.ParseTopology class
+"""
+# pylint: disable=C0103
 
-import topology_converter as tc
 from nose.tools import raises
 import pydotplus as dot
-# import os
+import topology_converter as tc
 
-class TestParseTopology:
+# pylint: disable=W0232
+class TestParseTopology(object):
+    """Class to test ParseTopology
+    """
     def setup(self):
-        self.dot_files = "./tests/dot_files/"
-        self.topology_object = tc.ParseGraphvizTopology()
-        self.graphviz_topology = dot.graphviz.graph_from_dot_file("./tests/dot_files/simple.dot")
+        """Initalize each test suite with default objects
+        """
+        self.dot_files = "./tests/dot_files/"  # pylint: disable=W0201
+        self.topology_object = tc.ParseGraphvizTopology()  # pylint: disable=W0201
+        self.graphviz_topology = dot.graphviz.graph_from_dot_file("./tests/dot_files/simple.dot")  # pylint: disable=W0201
 
 
     #@raises(Exception)
@@ -59,14 +66,21 @@ class TestParseTopology:
 
     @raises(SystemExit)
     def test_parse_topology_with_lint_failure(self):
+        """Ensure Lint failures cause the program to exit
+        """
         self.topology_object.parse_topology("./tests/dot_files/bad_dash.dot")
 
 
     def test_create_edge_from_graphviz(self):
         """Test creating an TC edge object from a Graphviz edge object
         """
-        left_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        right_interface = tc.NetworkInterface(hostname="spine01", interface_name="swp1", mac=None, ip=None )
+        left_interface = tc.NetworkInterface(hostname="leaf01",
+                                             interface_name="swp51",
+                                             mac=None, ip=None)
+
+        right_interface = tc.NetworkInterface(hostname="spine01",
+                                              interface_name="swp1",
+                                              mac=None, ip=None)
 
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
         edge_result = self.topology_object.create_edge_from_graphviz(graphviz_edge)
@@ -90,12 +104,20 @@ class TestParseTopology:
         assert edge_result.right_side.attributes == right_interface.attributes
 
     def test_create_edge_from_graphviz_left_mac(self):
+        """Test creating an edge from a Graphviz object with the left mac assigned
+        """
         # "leaf01":"swp51" -- "spine01":"swp1" [left_mac="00:03:00:11:11:01"]
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
         graphviz_edge.obj_dict["attributes"]["left_mac"] = "00:03:00:11:11:01"
 
-        left_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac="000300111101", ip=None )
-        right_interface = tc.NetworkInterface(hostname="spine01", interface_name="swp1", mac=None, ip=None )
+        left_interface = tc.NetworkInterface(hostname="leaf01",
+                                             interface_name="swp51",
+                                             mac="000300111101",
+                                             ip=None)
+        right_interface = tc.NetworkInterface(hostname="spine01",
+                                              interface_name="swp1",
+                                              mac=None,
+                                              ip=None)
 
         edge_result = self.topology_object.create_edge_from_graphviz(graphviz_edge)
 
@@ -106,12 +128,20 @@ class TestParseTopology:
 
 
     def test_create_edge_from_graphviz_right_mac(self):
+        """Test creating an edge from a graphviz object with the right mac set
+        """
         # "leaf01":"swp51" -- "spine01":"swp1" [right_mac="00:03:00:11:11:01"]
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
         graphviz_edge.obj_dict["attributes"]["right_mac"] = "00:03:00:11:11:01"
 
-        left_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        right_interface = tc.NetworkInterface(hostname="spine01", interface_name="swp1", mac="000300111101", ip=None )
+        left_interface = tc.NetworkInterface(hostname="leaf01",
+                                             interface_name="swp51",
+                                             mac=None,
+                                             ip=None)
+        right_interface = tc.NetworkInterface(hostname="spine01",
+                                              interface_name="swp1",
+                                              mac="000300111101",
+                                              ip=None)
 
         edge_result = self.topology_object.create_edge_from_graphviz(graphviz_edge)
 
@@ -121,6 +151,8 @@ class TestParseTopology:
         assert edge_result.right_side.attributes == right_interface.attributes
 
     def test_create_edge_from_graphviz_left_pxe(self):
+        """Create an edge from a graphviz object with the left host set to pxe
+        """
         # "leaf01":"swp51" -- "spine01":"swp1" [left_mac="00:03:00:11:11:01"]
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
         graphviz_edge.obj_dict["attributes"]["left_pxebootinterface"] = "True"
@@ -133,6 +165,8 @@ class TestParseTopology:
 
 
     def test_create_edge_from_graphviz_right_pxe(self):
+        """Create an edge from a graphviz object with the right host set to pxe
+        """
         # "leaf01":"swp51" -- "spine01":"swp1" [left_mac="00:03:00:11:11:01"]
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
         graphviz_edge.obj_dict["attributes"]["right_pxebootinterface"] = "True"
@@ -145,12 +179,20 @@ class TestParseTopology:
 
 
     def test_generic_left_attribute(self):
+        """Test processing a graphviz edge with a left, non-keyword, attribute set
+        """
         # "leaf01":"swp51" -- "spine01":"swp1" [right_mac="00:03:00:11:11:01"]
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp5\"")
         graphviz_edge.obj_dict["attributes"]["left_superspine"] = "True"
 
-        left_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        right_interface = tc.NetworkInterface(hostname="spine01", interface_name="swp1", mac=None, ip=None )
+        left_interface = tc.NetworkInterface(hostname="leaf01",
+                                             interface_name="swp51",
+                                             mac=None,
+                                             ip=None)
+        right_interface = tc.NetworkInterface(hostname="spine01",
+                                              interface_name="swp1",
+                                              mac=None,
+                                              ip=None)
 
         left_interface.add_attribute({"superspine": "True"})
 
@@ -163,12 +205,20 @@ class TestParseTopology:
 
 
     def test_generic_right_attribute(self):
+        """Test processing a graphviz edge with a right, non-keyword, attribute set
+        """
         # "leaf01":"swp51" -- "spine01":"swp1" [right_mac="00:03:00:11:11:01"]
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp5\"")
         graphviz_edge.obj_dict["attributes"]["right_superspine"] = "True"
 
-        left_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        right_interface = tc.NetworkInterface(hostname="spine01", interface_name="swp1", mac=None, ip=None )
+        left_interface = tc.NetworkInterface(hostname="leaf01",
+                                             interface_name="swp51",
+                                             mac=None,
+                                             ip=None)
+        right_interface = tc.NetworkInterface(hostname="spine01",
+                                              interface_name="swp1",
+                                              mac=None,
+                                              ip=None)
 
         right_interface.add_attribute({"superspine": "True"})
 
@@ -181,12 +231,21 @@ class TestParseTopology:
 
 
     def test_generic_attribute(self):
+        """Test processing a graphviz edge with both left and right
+        having, non-keyword, attributes set
+        """
         # "leaf01":"swp51" -- "spine01":"swp1"
         graphviz_edge = dot.graphviz.Edge("\"leaf01\":\"swp51\"", "\"spine01\":\"swp1\"")
         graphviz_edge.obj_dict["attributes"]["superspine"] = "True"
 
-        left_interface = tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=None, ip=None )
-        right_interface = tc.NetworkInterface(hostname="spine01", interface_name="swp1", mac=None, ip=None )
+        left_interface = tc.NetworkInterface(hostname="leaf01",
+                                             interface_name="swp51",
+                                             mac=None,
+                                             ip=None)
+        right_interface = tc.NetworkInterface(hostname="spine01",
+                                              interface_name="swp1",
+                                              mac=None,
+                                              ip=None)
 
         left_interface.add_attribute({"superspine": "True"})
         right_interface.add_attribute({"superspine": "True"})
@@ -199,9 +258,11 @@ class TestParseTopology:
 
 
     def test_create_node_from_graphviz(self):
+        """Test creating a node from a graphviz object
+        """
         # pydot.get_node() returns a list of one object, use the first one
         result_node = self.topology_object.create_node_from_graphviz(
-                            self.graphviz_topology.get_node("\"spine01\"")[0])
+            self.graphviz_topology.get_node("\"spine01\"")[0])
 
         assert result_node.hostname == "spine01"
         assert result_node.function == "spine"
@@ -213,11 +274,13 @@ class TestParseTopology:
 
 
     def test_create_node_from_graphviz_with_attributes(self):
+        """Test creating a node from graphviz object when an attribute is set
+        """
         graphviz_topology = dot.graphviz.graph_from_dot_file("./tests/dot_files/test_attribute.dot")
 
         # pydot.get_node() returns a list of one object, use the first one
         result_node = self.topology_object.create_node_from_graphviz(
-                            graphviz_topology.get_node("\"leaf01\"")[0])
+            graphviz_topology.get_node("\"leaf01\"")[0])
 
         assert result_node.hostname == "leaf01"
         assert result_node.function == "leaf"
@@ -230,12 +293,14 @@ class TestParseTopology:
 
     @raises(SystemExit)
     def test_create_node_from_graphviz_with_no_os(self):
+        """Test that a graphviz object without an OS causes program exit when parsed
+        """
         graphviz_topology = dot.graphviz.graph_from_dot_file("./tests/dot_files/no_os.dot")
 
         # pydot.get_node() returns a list of one object, use the first one
         self.topology_object.create_node_from_graphviz(graphviz_topology.get_node("\"spine01\"")[0])
 
-    def test_parse_topology_valid_topology(self):
+    def test_parse_topology_valid_topology(self):  # pylint: disable=R0914
         """Test parsing a Graphviz topology file.
         Uses tests/dot_files/simple.dot as the test file
         """
@@ -259,8 +324,8 @@ class TestParseTopology:
                                 memory="768", config="./helper_scripts/config_switch.sh")
 
         spine01 = tc.NetworkNode(hostname="spine01", function="spine",
-                                vm_os="CumulusCommunity/cumulus-vx", os_version="3.4.3",
-                                memory="768", config="./helper_scripts/config_switch.sh")
+                                 vm_os="CumulusCommunity/cumulus-vx", os_version="3.4.3",
+                                 memory="768", config="./helper_scripts/config_switch.sh")
 
         leaf01_swp51 = tc.NetworkInterface(hostname="leaf01", interface_name="swp51")
         leaf02_swp51 = tc.NetworkInterface(hostname="leaf02", interface_name="swp51")

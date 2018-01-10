@@ -412,6 +412,9 @@ class Inventory(object):
     def get_node_by_name(self, node_name):
         """Return a specific NetworkNode() in the inventory by it's name
         """
+        if node_name not in self.node_collection:
+            return None
+
         return self.node_collection[node_name]
 
 
@@ -514,29 +517,24 @@ class Inventory(object):
         attach every inventory device's eth0 interface to
         the oob-mgmt-server
         """
-        #### TODO: Take in cli_args and support custom IP range, dhcp pool sizes
-        oob_server_ip = ipaddress.ip_interface(u'192.168.200.254/24')
-        oob_subnet = oob_server_ip.network[0]
-        oob_cidrmask = oob_server_ip.network.prefixlen
-        oob_netmask = oob_server_ip.netmask
+
         mgmt_switch_port_count = 1
         current_lease = 10
         dhcp_pool_size = 40
 
-        try:
-            dhcp_start = oob_server_ip.network[current_lease]
-            dhcp_end = oob_server_ip.network[dhcp_pool_size + current_lease]
+        # Create an oob-server if the user didn't define one
+        if self.get_node_by_name("oob-mgmt-server") is None:
+            oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server")
+        else:
+            oob_server = self.get_node_by_name("oob-mgmt-server")
 
-        except IndexError:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR: Prefix Length on the Out Of Band Server is " +
-                  "not big enough to support usage of the 10th-50th IP " +
-                  "addresses being used for DHCP")
-            exit(1)
+        # Create an oob-sswitch if the user didn't define one
+        if self.get_node_by_name("oob-mgmt-switch") is None:
+            oob_switch = NetworkNode(hostname="oob-mgmt-switch", function="oob-switch")
+        else:
+            oob_switch = self.get_node_by_name("oob-mgmt-switch")
 
-        # Create the oob server and switch
-        oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server")
-        oob_switch = NetworkNode(hostname="oob-mgmt-switch", function="oob-switch")
+        oob_server_ip = get_oob_ip(oob_server)
 
         # Add the oob server and switch to the inventory
         self.add_node(oob_server)
@@ -552,20 +550,38 @@ class Inventory(object):
 
         # Look at all the hosts in the inventory and connect eth0 to the management switch
         for hostname, node_object in self.node_collection.iteritems():
+
             # Increment the oob switch port count
             mgmt_switch_port_count += 1
-            if node_object.get_interface("eth0") is not None:
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: " + hostname + " eth0 interface already exists. " +
-                      "Management network expect eth0 to not be connected")
-                exit(1)
 
             # Create the oob-switch links and assign IPs to the hosts.
             if "mgmt_ip" in node_object.other_attributes:
+                try:
+                    # Check if there is a mask on the mgmt_ip attribute
+                    # or assume /24
+                    if node_object.other_attributes["mgmt_ip"].find("/") < 0:
+                        node_ip = ipaddress.ip_interface(
+                                    unicode(node_object.other_attributes["mgmt_ip"] + "/24"))
+                    else:
+                        node_ip = ipaddress.ip_interface(node_object.other_attributes["mgmt_ip"])
+                except Exception: # pylint: disable=W0703
+                    print "Management IP address on " + node_object.hostname + " is invalid"
+                    exit(1)
+
+                # Verify node_ip in subnet of oob-server ip
+                if not oob_server_ip.network == node_ip.network:
+                    print "Management IP address on " + node_object.hostname + \
+                          " is not in the same subnet " + \
+                          " as the OOB server. OOB Server is configured for " + \
+                          str(oob_server_ip) + ". " + node_object.hostname + " is configured" + \
+                          " for " + str(node_ip)
+
+                    exit(1)
+
                 mgmt_port = "swp" + str(mgmt_switch_port_count)
                 self.add_edge(NetworkEdge(
                     NetworkInterface(hostname=hostname, interface_name="eth0",
-                                     ip=node_object.other_attributes["mgmt_ip"]),
+                                     ip=str(node_ip)),
                     NetworkInterface(hostname="oob-mgmt-switch",
                                      interface_name=mgmt_port)))
             else:
@@ -581,6 +597,28 @@ class Inventory(object):
                     NetworkInterface(hostname="oob-mgmt-switch",
                                      interface_name="swp" + str(mgmt_switch_port_count))))
                 current_lease += 1
+
+        @staticmethod
+        def get_oob_ip(oob_server):
+            """Determine the correct IP for the oob server.
+            Either the user provided IP or 192.168.200.254/24
+            """
+            if "mgmt_ip" in oob_server.other_attributes:
+                try:
+                    # If the netmask isn't provided, assume /24
+                    if oob_server.other_attributes["mgmt_ip"].find("/") < 0:
+                        return ipaddress.ip_interface(
+                            unicode(oob_server.other_attributes["mgmt_ip"] + "/24"))
+
+                    # If they set the management IP manually
+                    # on the existing server, use that one
+                    return ipaddress.ip_interface(unicode(oob_server.other_attributes["mgmt_ip"]))
+                except Exception:  # pylint: disable=W0703
+                    print(styles.FAIL + styles.BOLD +
+                          "Configured oob-mgmt-server management IP is invalid")
+                    exit(1)
+
+            return ipaddress.ip_interface(u'192.168.200.254/24')
 
 # A class for this may not be the best thing,
 # but seems easier than stand alone methods

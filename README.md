@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/plumbis/topology_converter.svg?branch=refactor)](https://travis-ci.org/plumbis/topology_converter)  [![Coverage Status](https://coveralls.io/repos/github/plumbis/topology_converter/badge.svg)](https://coveralls.io/github/plumbis/topology_converter)
+[![Build Status](https://travis-ci.org/plumbis/topology_converter.svg?branch=refactor)](https://travis-ci.org/plumbis/topology_converter)  [![Coverage Status](https://coveralls.io/repos/github/plumbis/topology_converter/badge.svg?branch=refactor)](https://coveralls.io/github/plumbis/topology_converter?branch=refactor)
 # Topology Converter
 =====================
 

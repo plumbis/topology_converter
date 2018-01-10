@@ -527,7 +527,7 @@ class Inventory(object):
                 return ipaddress.ip_interface(unicode(oob_server.other_attributes["mgmt_ip"]))
             except Exception:  # pylint: disable=W0703
                 print(styles.FAIL + styles.BOLD +
-                        "Configured oob-mgmt-server management IP is invalid")
+                      "Configured oob-mgmt-server management IP is invalid")
                 exit(1)
 
         return ipaddress.ip_interface(u'192.168.200.254/24')

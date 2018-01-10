@@ -7,7 +7,7 @@ install:
 script:
   - pylint *.py
   - pylint tests/*.py
-  - nosetests --with-coverage --cover-erase --cover-package=topology_converter --cover-html
+  - nosetests  --with-coverage --cover-erase --cover-package=topology_converter --cover-html
 
 after_success:
   - coveralls

@@ -4,7 +4,6 @@ Vagrantfile
 dhcp_mac_map
 *.pyc
 cover/
-.coverage*
 tc/
 venv/
 .idea/

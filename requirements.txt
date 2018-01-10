@@ -4,3 +4,4 @@ jinja2
 ipaddress
 coverage
 pylint
+python-coveralls

@@ -3,3 +3,4 @@ pydotplus
 jinja2
 ipaddress
 coverage
+pylint

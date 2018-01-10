@@ -4,4 +4,6 @@ install:
   - pip install -r requirements.txt
 
 script:
+  - pylint *.py
+  - pylint tests/*.py
   - nosetests --with-coverage --cover-erase --cover-package=topology_converter --cover-html

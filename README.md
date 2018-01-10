@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/plumbis/topology_converter.svg?branch=refactor)](https://travis-ci.org/plumbis/topology_converter)
 # Topology Converter
 =====================
 
@@ -52,7 +53,7 @@ PRs are actively welcomed.
 * v4\.5\.2 2016\_12\_08: Fixed many aspects of the Auto Mgmt Workflow (-c), Added Selective install of Puppet/Ansible to OOB-MGMT-SERVER Script, Added More Compact DHCP Hosts format, Fixed Errors during software install at turnup, Added Passwordless Sudo and SSH key generation. Added more robust Reboot support for all devices. Added Arg_string printout to Vagrantfile so you can see how topology converter was called. Added the ability to specify custom ansible groups based on device function. Added ONIE DHCP fix for vagrant. Upped Max NIC count in Libvirt to 130
 * v4\.5\.1 2016\_10\_14: Added Colored output for easy reading. Removed 2.5.x simulation measures. Updated for Vagrant v1.8.6 and boxes that can specify their own username/password. Added knob to avoid the Udev Remapping Operations for other boxes. Removed dependency on Apply_udev.py; did this to better support COREos and Fedora, cleaner overall solution.
 * v4\.5\.0 2016\_09\_10: Added [Create Management Network](documentation/auto_mgmt_network) option, this can automatically add a management network connected to eth0 port of all devices. Also builds a mgmt switch and ubuntu 1604 mgmt server. Added a TOR and SuperSpine function group. Added Group support for Ansible based on functions. Fixed interface driver configuration in host images to use E1000 driver to allow getting link speed to setup bonds. Corrected and enhanced documentation for new features and the "config" attribute.
-* v4\.3\.1 2016\_08\_07: Bugfix to fix regression in handling libvirt topologies. 
+* v4\.3\.1 2016\_08\_07: Bugfix to fix regression in handling libvirt topologies.
 * v4\.3\.0 2016\_07\_29: Added Initial PXEboot for Libvirt Support. Deprecated ubuntu=true node attribute, it is handled automatically now for images with ubuntu in the name. Modified Functional Defaults to use Ubuntu 14.04 as the host default instead of ubuntu1604 for wider compatability. Fixed Broken Synced Folders flag. Fixed /root/.profile error message output on unsupported platforms. Added Error handling for use of incompatible Ubuntu 1604 images with Libvirt. Updated Example topologies for v4.3.0 supported attributes. Removed Reference Topology. Updated Documentation for Libvirt provider options.
 * v4\.2\.0 2016\_06\_29: Improved support for VX 3.0, Improvements to the Apply_udev.py script to support more vagrant boxes used in host settings, Various Bug fixes for issues #7, #9, and other minor issues. Version node attribute support.
 * v4\.1\.0 2016\_05\_25: Added Support for VX 3.0, Added support for Version as a node Attribute, added support for pxebooting in virtualbox, added determinisic interface ordering in Vagrantfiles. Added Support for prepending "left_" and "right_" to any passthrough link attribute to specify which side of the link the attribute applies to. Added more realistic licensing support and switchd behavior in 2.5.x branches.
@@ -77,7 +78,7 @@ PRs are actively welcomed.
 * v2\.5 2016\_01\_25 Added libvirt support :) and added support for fake devices!
 * v2\.2 2016\_01\_19 Added Support for optional switch interface configuration
 * v2\.1 2016\_01\_15 Added Support Boot Ordering -- 1st device --> 2nd device --> servers --> switches
-* v2\.0 2016\_01\_07 Added Support for MAC handout, empty ansible playbook (used to generate ansible inventory), [EMPTY] connections for more accurate automation simulation, 
+* v2\.0 2016\_01\_07 Added Support for MAC handout, empty ansible playbook (used to generate ansible inventory), [EMPTY] connections for more accurate automation simulation,
 "vagrant" interface remapping for hosts and switches, warnings for interface reuse, added optional support for OOB switch.
 * v1\.0 2015\_10\_19 Initial version constructed
 

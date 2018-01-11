@@ -532,7 +532,7 @@ class Inventory(object):
 
         return ipaddress.ip_interface(u'192.168.200.254/24')
 
-    def build_mgmt_network(self):
+    def build_mgmt_network(self): # pylint: disable=R0912,R0915
         """Build a management network and add it to the inventory.
         This will create an oob-mgmt-switch and oob-mgmt-server
         NetworkNode if they do not exist and will
@@ -542,24 +542,28 @@ class Inventory(object):
 
         mgmt_switch_port_count = 1
         current_lease = 10
-        dhcp_pool_size = 40
+        dhcp_pool_start = current_lease
+        dhcp_pool_size = 128
+        management_ips = set()  # track the management IPs to prevent static-dhcp collisions
 
         # Create an oob-server if the user didn't define one
         if self.get_node_by_name("oob-mgmt-server") is None:
             oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server")
+            self.add_node(oob_server)
         else:
             oob_server = self.get_node_by_name("oob-mgmt-server")
 
-        # Create an oob-sswitch if the user didn't define one
+        # Create an oob-switch if the user didn't define one
         if self.get_node_by_name("oob-mgmt-switch") is None:
             oob_switch = NetworkNode(hostname="oob-mgmt-switch", function="oob-switch")
+            self.add_node(oob_switch)
+
         else:
             oob_switch = self.get_node_by_name("oob-mgmt-switch")
 
         oob_server_ip = self.get_oob_ip(oob_server)
 
         # Add the oob server and switch to the inventory
-        self.add_node(oob_server)
         self.add_node(oob_switch)
 
         # Connect the oob server and switch
@@ -570,8 +574,12 @@ class Inventory(object):
                                   NetworkInterface(hostname="oob-mgmt-switch",
                                                    interface_name=mgmt_port)))
 
+        management_ips.add(str(oob_server_ip))
+
         # Look at all the hosts in the inventory and connect eth0 to the management switch
         for hostname, node_object in self.node_collection.iteritems():
+            if hostname == "oob-mgmt-server" or hostname == "oob-mgmt-switch":
+                continue
 
             # Increment the oob switch port count
             mgmt_switch_port_count += 1
@@ -585,9 +593,19 @@ class Inventory(object):
                         node_ip = ipaddress.ip_interface(
                             unicode(node_object.other_attributes["mgmt_ip"] + "/24"))
                     else:
-                        node_ip = ipaddress.ip_interface(node_object.other_attributes["mgmt_ip"])
+                        node_ip = ipaddress.ip_interface(
+                            unicode(node_object.other_attributes["mgmt_ip"]))
+
                 except Exception: # pylint: disable=W0703
                     print "Management IP address on " + node_object.hostname + " is invalid"
+                    exit(1)
+
+                # Prevent an IP collision between the oob-server and the node
+                # the node_ip is a CIDR IP/Mask, while everything else has been
+                # just an IP, so pull out just the IP and cast to string to compare
+                if str(node_ip.ip) in management_ips:
+                    print "Management IP address on " + node_object.hostname + \
+                          " is already in use. Likely it matches another static IP"
                     exit(1)
 
                 # Verify node_ip in subnet of oob-server ip
@@ -606,19 +624,42 @@ class Inventory(object):
                                      ip=str(node_ip)),
                     NetworkInterface(hostname="oob-mgmt-switch",
                                      interface_name=mgmt_port)))
+                management_ips.add(str(node_ip))
+
             else:
+                if current_lease == dhcp_pool_size - 1:
+                    print "here"
+
                 if current_lease > dhcp_pool_size:
                     print(styles.FAIL + styles.BOLD +
                           " ### ERROR: Number of devices in management " +
-                          "network exceeds DCHP pool size (" + str(dhcp_pool_size) + ")")
+                          "network (" + str(len(self.node_collection)) +
+                          " including oob-server and oob-switch) exceeds" +
+                          " DCHP pool size (" + str(dhcp_pool_size - dhcp_pool_start) + ")" +
+                          styles.ENDC)
                     exit(1)
+
+                # If the oob-server is an IP in the middle of the range, try the next one
+                if oob_server_ip.ip == oob_server_ip.network[current_lease]:
+
+                    # If picking the next IP exceeds the pool, exit.
+                    if current_lease + 1 > dhcp_pool_size:
+                        print(styles.FAIL + styles.BOLD +
+                              " ### ERROR: Number of devices in management " +
+                              "network exceeds DCHP pool size (" + str(dhcp_pool_size) + ")" +
+                              styles.ENDC)
+                        exit(1)
+
+                    current_lease += 1
 
                 self.add_edge(NetworkEdge(
                     NetworkInterface(hostname=hostname, interface_name="eth0",
                                      ip=str(oob_server_ip.network[current_lease])),
                     NetworkInterface(hostname="oob-mgmt-switch",
                                      interface_name="swp" + str(mgmt_switch_port_count))))
+                management_ips.add(str(oob_server_ip.network[current_lease]))
                 current_lease += 1
+
 
 
 # A class for this may not be the best thing,

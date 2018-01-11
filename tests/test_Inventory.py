@@ -729,3 +729,226 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
 
         for remote_port in inventory_remote_ports:
             assert remote_port in oob_local_ports
+
+    @raises(SystemExit)
+    def test_build_mgmt_network_bad_mgmt_server_node(self):
+        """Building a mgmt network with a node called "oob-mgmt-server" but
+        without the oob-server function should exit
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="leaf",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.200.1"})
+
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+
+    @raises(SystemExit)
+    def test_build_mgmt_network_bad_mgmt_switch_node(self):
+        """Building a mgmt network with a node called "oob-mgmt-switch" but
+        without the oob-switch function should exit
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-switch", function="leaf",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.200.1"})
+
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+
+    def test_get_oob_ip_static_ip_no_mask(self):
+        """Test creating an oob-server node when the oob-server is user defined
+        and the mgmt_ip is provided without a mask
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.200.1"})
+
+        self.inventory.add_parsed_topology(parser)
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+        print self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].ip
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].ip == "192.168.200.1/24"  # pylint: disable=C0301
+
+    def test_get_oob_ip_static_ip_with_mask(self):
+        """Test creating an oob-server node when the oob-server is user defined
+        and the mgmt_ip is provided without a mask
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.200.1/24"})
+
+        self.inventory.add_parsed_topology(parser)
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+        print self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].ip
+        assert self.inventory.node_collection["oob-mgmt-server"].interfaces["eth1"].ip == "192.168.200.1/24"  # pylint: disable=C0301
+
+    @raises(SystemExit)
+    def test_get_oob_invalid_ip(self):
+        """Test creating an oob-server with an invalid static IP
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.16.8.200.1/24"})
+
+        self.inventory.add_parsed_topology(parser)
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+    @raises(SystemExit)
+    def test_get_node_invalid_ip(self):
+        """Test that a node with an invalid management IP exits
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+
+        test_node = tc.NetworkNode(hostname="leaf99", function="leaf",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.16.8.200.11/24"})
+
+        self.inventory.add_parsed_topology(parser)
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+    @raises(SystemExit)
+    def test_more_nodes_than_leases(self):
+        """Test that adding more nodes than the lease space causes program exit
+        """
+
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        x = 1
+        while x < 200:
+            self.inventory.add_node(tc.NetworkNode(hostname=str("node" + str(x)), function="leaf",
+                                                   vm_os="CumulusCommunity/cumulus-vx",
+                                                   memory="768",
+                                                   config="./helper_scripts/oob_switch_config.sh"))
+            x += 1
+
+        self.inventory.build_mgmt_network()
+
+
+    @raises(SystemExit)
+    def test_mgmt_ip_collision(self):
+        """Test that a static IP that collides with the DHCP pool exits
+        """
+
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="leaf99", function="leaf",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.200.11/24"})
+
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+    @raises(SystemExit)
+    def test_static_ip_not_in_mgmt_subnet(self):
+        """Test that a static IP which isn't in the oob subnet exits
+        """
+
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="leaf99", function="leaf",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "10.1.1.1/24"})
+
+        self.inventory.add_node(test_node)
+        self.inventory.build_mgmt_network()
+
+
+    @raises(SystemExit)
+    def test_pool_exceeded_on_end_oob_ip(self):
+        """If the oob server has an IP in the end of the pool and it
+        causes the pool size to be exceeded, program should exit.
+        """
+
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.200.128/24"})
+
+        self.inventory.add_node(test_node)
+
+        x = 1
+        while x < 115:
+            self.inventory.add_node(tc.NetworkNode(hostname=str("node" + str(x)), function="leaf",
+                                                   vm_os="CumulusCommunity/cumulus-vx",
+                                                   memory="768",
+                                                   config="./helper_scripts/oob_switch_config.sh"))
+            x += 1
+
+
+        self.inventory.build_mgmt_network()
+
+
+    def test_oob_middle_of_pool(self):
+        """If the oob server has an IP in the middle of the pool
+        that IP is skipped and IP assignments continue
+        """
+
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple.dot")
+        self.inventory.provider = "libvirt"
+        self.inventory.add_parsed_topology(parser)
+
+        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                   vm_os="CumulusCommunity/cumulus-vx",
+                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
+                                   other_attributes={"mgmt_ip": "192.168.200.13/24"})
+
+        self.inventory.add_node(test_node)
+
+        self.inventory.build_mgmt_network()
+
+        for hostname, node_object in self.inventory.node_collection.iteritems():
+            if hostname != "oob-mgmt-server" and hostname != "oob-mgmt-switch":
+                assert node_object.interfaces["eth0"].ip != "192.168.200.13"

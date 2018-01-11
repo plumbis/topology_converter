@@ -371,3 +371,24 @@ class TestParseTopology(object):
 
         # This should be a better test, I'm lazy.
         assert len(self.topology_object.edges) == len(expected_edges)
+
+    def test_parse_with_pxehost(self):
+        """Test that parsing a dot file with a pxehost is correct
+        """
+        self.topology_object.parse_topology("./tests/dot_files/pxehost.dot")
+
+        assert len(self.topology_object.nodes) == 2
+        for node in self.topology_object.nodes:
+            if node.hostname == "server1":
+                assert node.hostname == "server1"
+                assert node.function == "host"
+                assert node.config == "./helper_scripts/extra_server_config.sh"
+                assert node.pxehost == False
+
+            elif node.hostname == "pxehost":
+                assert node.hostname == "pxehost"
+                assert node.function == "host"
+                assert node.vm_os == None
+                assert node.memory == "512"
+                assert node.config == "./helper_scripts/pxe_config.sh"
+                assert node.pxehost == True

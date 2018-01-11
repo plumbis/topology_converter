@@ -375,7 +375,11 @@ class TestParseTopology(object):
     def test_parse_with_pxehost(self):
         """Test that parsing a dot file with a pxehost is correct
         """
-        self.topology_object.parse_topology("./tests/dot_files/pxehost.dot")
+        parsed_topo = self.topology_object.parse_topology("./tests/dot_files/pxehost.dot")
+        inventory = tc.Inventory()
+
+        inventory.provider = "virtualbox"
+        inventory.add_parsed_topology(parsed_topo)
 
         assert len(self.topology_object.nodes) == 2
         for node in self.topology_object.nodes:
@@ -383,12 +387,16 @@ class TestParseTopology(object):
                 assert node.hostname == "server1"
                 assert node.function == "host"
                 assert node.config == "./helper_scripts/extra_server_config.sh"
-                assert node.pxehost == False
+                assert node.pxehost is False
+                assert inventory.get_node_by_name(
+                    "server1").get_interface("eth0").pxe_priority == 0
 
             elif node.hostname == "pxehost":
                 assert node.hostname == "pxehost"
                 assert node.function == "host"
-                assert node.vm_os == None
+                assert node.vm_os is None
                 assert node.memory == "512"
                 assert node.config == "./helper_scripts/pxe_config.sh"
-                assert node.pxehost == True
+                assert node.pxehost is True
+                assert inventory.get_node_by_name(
+                    "pxehost").get_interface("eth0").pxe_priority == 1

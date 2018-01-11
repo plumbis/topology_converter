@@ -85,9 +85,15 @@ class NetworkNode(object):
             exit(1)
 
         self.function = function
+        if other_attributes is None:
+            self.other_attributes = dict()
+        else:
+            self.other_attributes = other_attributes
+
+        self.pxehost = "pxehost" in self.other_attributes
 
         if self.function in defaults:
-            if vm_os is None:
+            if vm_os is None and not self.pxehost:
                 vm_os = defaults[function]["os"]
             if memory is None:
                 memory = defaults[function]["memory"]
@@ -110,18 +116,12 @@ class NetworkNode(object):
                   self.hostname + styles.ENDC)
             exit(1)
 
-        if other_attributes is None:
-            self.other_attributes = dict()
-        else:
-            self.other_attributes = other_attributes
-
         self.vm_os = vm_os
         self.memory = memory
         self.config = config
         self.tunnel_ip = tunnel_ip
         self.interfaces = {}
         self.os_version = os_version
-        self.pxehost = "pxehost" in self.other_attributes
         self.has_pxe_interface = False
 
     @staticmethod
@@ -864,6 +864,7 @@ class ParseGraphvizTopology(object):
         graphviz_attributes = graphviz_node.get_attributes()
 
         vm_os = None
+        os_version = None
         function = "unknown"
         memory = None
         config = None
@@ -982,10 +983,6 @@ def parse_arguments():
     #         print(styles.FAIL + styles.BOLD + " ### ERROR: provided template file-- \"" +
     #               templatefile + "\" does not exist!" + styles.ENDC)
     #         exit(1)
-
-    # if if args.verbose:
-    #     print("Arguments:")
-    #     print(args)
 
     return parser
 

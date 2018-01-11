@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 """Test suite for the topology converter command line arguments
 """
-
+# pylint: disable=C0103
 from nose.tools import raises
 import topology_converter as tc
 
-class TestCLI(object):
+class TestCLI(object):  # pylint: disable=W0612
     """Test suite for the CLI() topology converter object
     """
 
     def setup(self):
         """Test setup. Start with a blank Inventory object
         """
-        self.short_parser = tc.parse_arguments()
-        self.long_parser = tc.parse_arguments()
+        self.short_parser = tc.parse_arguments()  # pylint: disable=W0201
+        self.long_parser = tc.parse_arguments()  # pylint: disable=W0201
 
 
     def test_topology_file_only(self):
@@ -124,21 +124,22 @@ class TestCLI(object):
         assert parsed.topology_file == "tests/simple.dot"
         assert parsed.template == [["test.j2", "Vagrantfile"]]
 
-        long_parse = self.long_parser.parse_args(["tests/simple.dot", "--template", "test.j2", "Vagrantfile"])
+        long_parse = self.long_parser.parse_args(
+            ["tests/simple.dot", "--template", "test.j2", "Vagrantfile"])
         assert long_parse.template == [["test.j2", "Vagrantfile"]]
 
     @raises(SystemExit)
-    def test_template_short_invalid_args(self):
+    def test_template_short_invalid_args(self):  # pylint: disable=C0103
         """Test that -t without a template file exits
         """
-        parsed = self.short_parser.parse_args(["tests/simple.dot", "-t"])
+        self.short_parser.parse_args(["tests/simple.dot", "-t"])
 
 
     @raises(SystemExit)
     def test_template_long_invalid_args(self):
         """Test that --template without a template file exits
         """
-        long_parse = self.long_parser.parse_args(["tests/simple.dot", "--template", "test.j2"])
+        self.long_parser.parse_args(["tests/simple.dot", "--template", "test.j2"])
 
     def test_start_port(self):
         """Test start_port argumement
@@ -160,7 +161,7 @@ class TestCLI(object):
         long_parse = self.long_parser.parse_args(["tests/simple.dot", "--port-gap", "4096"])
         assert long_parse.port_gap == 4096
 
-    def test_port_gap(self):
+    def test_display_datastructures(self):
         """Test display datastructures argumement
         """
         parsed = self.short_parser.parse_args(["tests/simple.dot", "-dd"])
@@ -170,7 +171,7 @@ class TestCLI(object):
         long_parse = self.long_parser.parse_args(["tests/simple.dot", "--display-datastructures"])
         assert long_parse.display_datastructures
 
-    def test_port_gap(self):
+    def test_synced_folder(self):
         """Test synced-folder argumement
         """
         long_parse = self.long_parser.parse_args(["tests/simple.dot", "--synced-folder"])

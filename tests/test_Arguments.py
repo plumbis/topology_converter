@@ -32,7 +32,7 @@ class TestCLI(object):  # pylint: disable=W0612
         assert parsed.port_gap == 1000
         assert not parsed.display_datastructures
         assert not parsed.synced_folder
-
+        assert parsed.vagrantfile == "Vagrantfile"
 
     def test_verbose(self):
         """Test setting the verbose flag
@@ -176,3 +176,10 @@ class TestCLI(object):  # pylint: disable=W0612
         """
         long_parse = self.long_parser.parse_args(["tests/simple.dot", "--synced-folder"])
         assert long_parse.synced_folder
+
+    def test_vagrantfile(self):
+        """Test vagrantfile argumement
+        """
+        long_parse = self.long_parser.parse_args(["tests/simple.dot", "--vagrantfile", "test_output.txt"])
+
+        assert long_parse.vagrantfile == "test_output.txt"

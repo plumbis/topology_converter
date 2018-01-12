@@ -13,12 +13,13 @@ import re
 import argparse
 import ipaddress
 import pydotplus
+import jinja2
 # import sys
 # import time
 # import pprint
-# import jinja2
 
-VERSION = "4.6.5"
+
+VERSION = "5.0.0"
 
 
 class styles(object):# pylint: disable=C0103, R0903
@@ -123,6 +124,20 @@ class NetworkNode(object):
         self.interfaces = {}
         self.os_version = os_version
         self.has_pxe_interface = False
+
+    def to_dict(self):
+        """Return a dictionary representation of the Node object
+        """
+        return {
+            "hostname": self.hostname,
+            "function": self.function,
+            "vm_os": self.vm_os,
+            "memory": self.memory,
+            "config": self.config,
+            "os_version": self.os_version,
+            "tunnel_ip": self.tunnel_ip,
+            "other_attributes": self.other_attributes
+        }
 
     @staticmethod
     def check_hostname(hostname):
@@ -906,51 +921,62 @@ class ParseGraphvizTopology(object):
 
 
 def parse_arguments():
-    """ Parse command line arguments, and return a dict of values."""
-    parser = argparse.ArgumentParser(description='Topology Converter -- Convert \
-                                     topology.dot files into Vagrantfiles')
-    parser.add_argument('topology_file',
-                        help='provide a topology file as input')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='enables verbose logging mode')
-    parser.add_argument('-p', '--provider', choices=["libvirt", "virtualbox"], default="virtualbox",
-                        help='specifies the provider to be used in the Vagrantfile, \
-                        script supports "virtualbox" or "libvirt", default is virtualbox.')
-    parser.add_argument('-a', '--ansible-hostfile', action='store_true',
-                        help='When specified, ansible hostfile will be generated \
-                        from a dummy playbook run.')
-    parser.add_argument('-c', '--create-mgmt-network', action='store_true',
-                        help='When specified, a mgmt switch and server will be created. \
+    """ Parse command line arguments, and return a dict of values.
+    """
+    parser = argparse.ArgumentParser(description="Topology Converter -- Convert \
+                                     topology.dot files into Vagrantfiles")
+
+    parser.add_argument("topology_file",
+                        help="provide a topology file as input")
+
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="enables verbose logging mode")
+
+    parser.add_argument("-p", "--provider", choices=["libvirt", "virtualbox"], default="virtualbox",
+                        help="specifies the provider to be used in the Vagrantfile, \
+                        script supports 'virtualbox' or 'libvirt', default is virtualbox.")
+
+    parser.add_argument("-a", "--ansible-hostfile", action="store_true",
+                        help="When specified, ansible hostfile will be generated \
+                        from a dummy playbook run.")
+
+    parser.add_argument("-c", "--create-mgmt-network", action="store_true",
+                        help="When specified, a mgmt switch and server will be created. \
                         A /24 is assumed for the mgmt network. mgmt_ip=X.X.X.X will be \
                         read from each device to create a Static DHCP mapping for \
-                        the oob-mgmt-server.')
-    parser.add_argument('-cco', '--create-mgmt-configs-only', action='store_true',
-                        help='Calling this option does NOT regenerate the Vagrantfile \
+                        the oob-mgmt-server.")
+
+    parser.add_argument("-cco", "--create-mgmt-configs-only", action="store_true",
+                        help="Calling this option does NOT regenerate the Vagrantfile \
                         but it DOES regenerate the configuration files that come \
-                        packaged with the mgmt-server in the "-c" option. This option \
-                        is typically used after the "-c" has been called to generate \
+                        packaged with the mgmt-server in the '-c' option. This option \
+                        is typically used after the '-c' has been called to generate \
                         a Vagrantfile with an oob-mgmt-server and oob-mgmt-switch to \
                         modify the configuraiton files placed on the oob-mgmt-server \
                         device. Useful when you do not want to regenerate the \
                         vagrantfile but you do want to make changes to the \
-                        OOB-mgmt-server configuration templates.')
-    parser.add_argument('-cmd', '--create-mgmt-device', action='store_true',
-                        help='Calling this option creates the mgmt device and runs the \
+                        OOB-mgmt-server configuration templates.")
+
+    parser.add_argument("-cmd", "--create-mgmt-device", action="store_true",
+                        help="Calling this option creates the mgmt device and runs the \
                         auto_mgmt_network template engine to load configurations on to \
                         the mgmt device but it does not create the OOB-MGMT-SWITCH or \
                         associated connections. Useful when you are manually specifying \
                         the construction of the management network but still want to have \
-                        the OOB-mgmt-server created automatically.')
-    parser.add_argument('-t', '--template', action='append', nargs=2,
-                        help='Specify an additional jinja2 template and a destination \
-                        for that file to be rendered to.')
-    parser.add_argument('-s', '--start-port', type=int, default=8000,
-                        help='FOR LIBVIRT PROVIDER: this option overrides \
+                        the OOB-mgmt-server created automatically.")
+
+    parser.add_argument("-t", "--template", action="append", nargs=2,
+                        help="Specify an additional jinja2 template and a destination \
+                        for that file to be rendered to.")
+
+    parser.add_argument("-s", "--start-port", type=int, default=8000,
+                        help="FOR LIBVIRT PROVIDER: this option overrides \
                         the default starting-port 8000 with a new value. \
                         Use ports over 1024 to avoid permissions issues. If using \
-                        this option with the virtualbox provider it will be ignored.')
-    parser.add_argument('-g', '--port-gap', type=int, default=1000,
-                        help='FOR LIBVIRT PROVIDER: this option overrides the \
+                        this option with the virtualbox provider it will be ignored.")
+
+    parser.add_argument("-g", "--port-gap", type=int, default=1000,
+                        help="FOR LIBVIRT PROVIDER: this option overrides the \
                         default port-gap of 1000 with a new value. This number \
                         is added to the start-port value to determine the port \
                         to be used by the remote-side. Port-gap also defines the \
@@ -958,366 +984,118 @@ def parse_arguments():
                         If start-port is 8000 and port-gap is 1000 the first link \
                         will use ports 8001 and 9001 for the construction of the \
                         UDP tunnel. If using this option with the virtualbox \
-                        provider it will be ignored.')
-    parser.add_argument('-dd', '--display-datastructures', action='store_true',
-                        help='When specified, the datastructures which are passed \
+                        provider it will be ignored.")
+
+    parser.add_argument("-dd", "--display-datastructures", action="store_true",
+                        help="When specified, the datastructures which are passed \
                         to the template are displayed to screen. Note: Using \
                         this option does not write a Vagrantfile and \
-                        supercedes other options.')
-    parser.add_argument('--synced-folder', action='store_true',
-                        help='Using this option enables the default Vagrant \
+                        supercedes other options.")
+
+    parser.add_argument("--synced-folder", action="store_true",
+                        help="Using this option enables the default Vagrant \
                         synced folder which we disable by default. \
-                        See: https://www.vagrantup.com/docs/synced-folders/basic_usage.html')
-    parser.add_argument('--version', action='version', version="Topology \
+                        See: https://www.vagrantup.com/docs/synced-folders/basic_usage.html")
+
+    parser.add_argument("--version", action="version", version="Topology \
                         Converter version is v%s" % VERSION,
-                        help='Using this option displays the version of Topology Converter')
+                        help="Using this option displays the version of Topology Converter")
 
-    # arg_string = " ".join(sys.argv)
-
-    # if args.template:
-    #     for templatefile, destination in args.template:
-    #         TEMPLATES.append([templatefile, destination])
-
-    # for templatefile, destination in TEMPLATES:
-    #     if not os.path.isfile(templatefile):
-    #         print(styles.FAIL + styles.BOLD + " ### ERROR: provided template file-- \"" +
-    #               templatefile + "\" does not exist!" + styles.ENDC)
-    #         exit(1)
+    parser.add_argument("--vagrantfile", default="Vagrantfile",
+                        help="Define a customer file to output instead of 'Vagrantfile'")
 
     return parser
 
 
-
-############
-## TODO   # pylint: disable=W0511
-############
-
-# Parse Arguments
-# network_functions = ['oob-switch', 'internet', 'exit', 'superspine', 'spine', 'leaf', 'tor']
-# function_group = {}
-# provider = "virtualbox"
-# generate_ansible_hostfile = False
-# create_mgmt_device = False
-# create_mgmt_network = False
-# create_mgmt_configs_only = False
-# verbose = False
-# start_port = 8000
-# port_gap = 1000
-# synced_folder = False
-# display_datastructures = False
-# VAGRANTFILE = 'Vagrantfile'
-# VAGRANTFILE_template = 'templates/Vagrantfile.j2'
-# customer = os.path.basename(os.path.dirname(os.getcwd()))
-# TEMPLATES = [[VAGRANTFILE_template, VAGRANTFILE]]
-
-###################################
-#### MAC Address Configuration ####
-###################################
-
-# # The starting MAC for assignment for any devices not in mac_map
-# # Cumulus Range ( https://support.cumulusnetworks.com/hc/en-us/articles/203837076-Reserved-MAC-Address-Range-for-Use-with-Cumulus-Linux ) # pylint: disable=C0301
-# start_mac = "443839000000"
-
-# # This file is generated to store the mapping between macs and mgmt interfaces
-# dhcp_mac_file = "./dhcp_mac_map"
-
-# ######################################################
-# #############    Everything Else     #################
-# ######################################################
-
-# # Hardcoded Variables
-# script_storage = "./helper_scripts"
-# epoch_time = str(int(time.time()))
-# mac_map = {}
-
-
-# def clean_datastructure(devices):
-#     # Sort the devices by function
-#     devices.sort(key=getKeyDevices)
-#     for device in devices:
-#         device['interfaces'] = sorted_interfaces(device['interfaces'])
-
-#     if display_datastructures:
-#         return devices
-#     for device in devices:
-#         print(styles.GREEN + styles.BOLD + ">> DEVICE: " + device['hostname'] + styles.ENDC)
-#         print("     code: " + device['os'])
-
-#         if 'memory' in device:
-#             print("     memory: " + device['memory'])
-
-#         for attribute in device:
-#             if attribute == 'memory' or attribute == 'os' or attribute == 'interfaces':
-#                 continue
-#             print("     " + str(attribute) + ": " + str(device[attribute]))
-
-#         for interface_entry in device['interfaces']:
-#             print("       LINK: " + interface_entry["local_interface"])
-#             for attribute in interface_entry:
-#                 if attribute != "local_interface":
-#                     print("               " + attribute + ": " + interface_entry[attribute])
-
-#     # Remove Fake Devices
-#     indexes_to_remove = []
-#     for i in range(0, len(devices)):
-#         if 'function' in devices[i]:
-#             if devices[i]['function'] == 'fake':
-#                 indexes_to_remove.append(i)
-#     for index in sorted(indexes_to_remove, reverse=True):
-#         del devices[index]
-#     return devices
-
-
-# def remove_generated_files():
-#     if display_datastructures:
-#         return
-#     if verbose:
-#         print("Removing existing DHCP FILE...")
-#     if os.path.isfile(dhcp_mac_file):
-#         os.remove(dhcp_mac_file)
-
-
-# # _nsre = re.compile('([0-9]+)')
-
-
-# def natural_sort_key(s):
-#     return [int(text) if text.isdigit() else text.lower()
-#             for text in re.split(_nsre, s)]
-
-
-# def getKeyDevices(device):
-#     # Used to order the devices for printing into the vagrantfile
-#     if device['function'] == "oob-server":
-#         return 1
-#     elif device['function'] == "oob-switch":
-#         return 2
-#     elif device['function'] == "exit":
-#         return 3
-#     elif device['function'] == "superspine":
-#         return 4
-#     elif device['function'] == "spine":
-#         return 5
-#     elif device['function'] == "leaf":
-#         return 6
-#     elif device['function'] == "tor":
-#         return 7
-#     elif device['function'] == "host":
-#         return 8
-#     else:
-#         return 9
-
-
-# def sorted_interfaces(interface_dictionary):
-#     sorted_list = []
-#     interface_list = []
-
-#     for link in interface_dictionary:
-#         sorted_list.append(link)
-
-#     sorted_list.sort(key=natural_sort_key)
-
-#     for link in sorted_list:
-#         interface_dictionary[link]["local_interface"] = link
-#         interface_list.append(interface_dictionary[link])
-
-#     return interface_list
-
-
-# def generate_dhcp_mac_file(mac_map):
-#     if verbose:
-#         print("GENERATING DHCP MAC FILE...")
-
-#     mac_file = open(dhcp_mac_file, "a")
-
-#     if '' in mac_map:
-#         del mac_map['']
-
-#     dhcp_display_list = []
-
-#     for line in mac_map:
-#         dhcp_display_list.append(mac_map[line] + "," + line)
-
-#     dhcp_display_list.sort()
-
-#     for line in dhcp_display_list:
-#         mac_file.write(line + "\n")
-
-#     mac_file.close()
-
-
-# def populate_data_structures(inventory):
-#     global function_group
-#     devices = []
-
-#     for device in inventory:
-#         inventory[device]['hostname'] = device
-#         devices.append(inventory[device])
-
-#     devices_clean = clean_datastructure(devices)
-
-#     # Create Functional Group Map
-#     for device in devices_clean:
-
-#         if device['function'] not in function_group:
-#             function_group[device['function']] = []
-
-#         function_group[device['function']].append(device['hostname'])
-
-#     return devices_clean
-
-
-# def render_jinja_templates(devices):
-#     global function_group
-
-#     if display_datastructures:
-#         print_datastructures(devices)
-
-#     if verbose:
-#         print("RENDERING JINJA TEMPLATES...")
-
-#     # Render the MGMT Network stuff
-#     if create_mgmt_device:
-#         # Check that MGMT Template Dir exists
-#         mgmt_template_dir = "./templates/auto_mgmt_network/"
-#         if not os.path.isdir("./templates/auto_mgmt_network"):
-#             print(styles.FAIL + styles.BOLD +
-#                   "ERROR: " + mgmt_template_dir +
-#                   " does not exist. Cannot populate templates!" +
-#                   styles.ENDC)
-
-#             exit(1)
-
-#         # Scan MGMT Template Dir for .j2 files
-#         mgmt_templates = []
-
-#         for file in os.listdir(mgmt_template_dir):
-
-#             if file.endswith(".j2"):
-#                 mgmt_templates.append(file)
-
-#         if verbose:
-#             print(" detected mgmt_templates:")
-#             print(mgmt_templates)
-
-#         # Create output location for MGMT template files
-#         mgmt_destination_dir = "./helper_scripts/auto_mgmt_network/"
-#         if not os.path.isdir(mgmt_destination_dir):
-#             if verbose:
-#                 print("Making Directory for MGMT Helper Files: " + mgmt_destination_dir)
-
-#             try:
-#                 os.mkdir(mgmt_destination_dir)
-
-#             except:
-#                 print(styles.FAIL + styles.BOLD +
-#                       "ERROR: Could not create output directory for mgmt template renders!" +
-#                       styles.ENDC)
-#                 exit(1)
-
-#         # Render out the templates
-#         for template in mgmt_templates:
-#             render_destination = os.path.join(mgmt_destination_dir, template[0:-3])
-#             template_source = os.path.join(mgmt_template_dir, template)
-
-#             if verbose:
-#                 print("    Rendering: " + template + " --> " + render_destination)
-
-#             template = jinja2.Template(open(template_source).read())
-
-#             with open(render_destination, 'w') as outfile:
-#                 outfile.write(template.render(devices=devices,
-#                                               synced_folder=synced_folder,
-#                                               provider=provider,
-#                                               version=version,
-#                                               customer=customer,
-#                                               topology_file=topology_file,
-#                                               arg_string=arg_string,
-#                                               epoch_time=epoch_time,
-#                                               script_storage=script_storage,
-#                                               generate_ansible_hostfile=generate_ansible_hostfile,
-#                                               create_mgmt_device=create_mgmt_device,
-#                                               function_group=function_group,
-#                                               network_functions=network_functions,))
-
-#     # Render the main Vagrantfile
-#     if create_mgmt_device and create_mgmt_configs_only:
-#         return 0
-
-#     for templatefile, destination in TEMPLATES:
-
-#         if verbose:
-#             print("    Rendering: " + templatefile + " --> " + destination)
-
-#         template = jinja2.Template(open(templatefile).read())
-
-#         with open(destination, 'w') as outfile:
-#             outfile.write(template.render(devices=devices,
-#                                           synced_folder=synced_folder,
-#                                           provider=provider,
-#                                           version=version,
-#                                           topology_file=topology_file,
-#                                           arg_string=arg_string,
-#                                           epoch_time=epoch_time,
-#                                           script_storage=script_storage,
-#                                           generate_ansible_hostfile=generate_ansible_hostfile,
-#                                           create_mgmt_device=create_mgmt_device,
-#                                           function_group=function_group,
-#                                           network_functions=network_functions,))
-
-
-# def print_datastructures(devices):
-#     print("\n\n######################################")
-#     print("   DATASTRUCTURES SENT TO TEMPLATE:")
-#     print("######################################\n")
-#     print("provider=" + provider)
-#     print("synced_folder=" + str(synced_folder))
-#     print("version=" + str(version))
-#     print("topology_file=" + topology_file)
-#     print("arg_string=" + arg_string)
-#     print("epoch_time=" + str(epoch_time))
-#     print("script_storage=" + script_storage)
-#     print("generate_ansible_hostfile=" + str(generate_ansible_hostfile))
-#     print("create_mgmt_device=" + str(create_mgmt_device))
-#     print("function_group=")
-#     pp.pprint(function_group)
-#     print("network_functions=")
-#     pp.pprint(network_functions)
-#     print("devices=")
-#     pp.pprint(devices)
-#     exit(0)
-
-
-# def generate_ansible_files():
-#     if not generate_ansible_hostfile:
-#         return
-
-#     if verbose:
-#         print("Generating Ansible Files...")
-
-#     with open("./helper_scripts/empty_playbook.yml", "w") as playbook:
-#         playbook.write("""---
-# - hosts: all
-#   user: vagrant
-#   gather_facts: no
-#   tasks:
-#     - command: "uname -a"
-# """)
-
-#     with open("./ansible.cfg", "w") as ansible_cfg:
-#         ansible_cfg.write("""[defaults]
-# inventory = ./.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
-# hostfile= ./.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
-# host_key_checking=False
-# callback_whitelist = profile_tasks
-# jinja2_extensions=jinja2.ext.do""")
+def check_files(cli_args, vagrant_template):
+    """Verify that all required files can be opened.
+    This includes the template file based by the command line
+    and the default vagrantfile .j2 jinja template
+    """
+
+    if cli_args.template:
+        for template_file in cli_args.template[0]:
+            if not os.path.isfile(template_file):
+                print(styles.FAIL + styles.BOLD +
+                      " ### ERROR: provided template file-- \"" +
+                      template_file + "\" does not exist!" +
+                      styles.ENDC)
+                exit(1)
+
+    if not os.path.isfile(vagrant_template):
+        print(styles.FAIL + styles.BOLD +
+              " ### ERROR: Default Vagrant Template \"" + vagrant_template + "\" does not exist!" +
+              styles.ENDC)
+        exit(1)
+
+    return True
+
+
+def render_ansible_hostfile(inventory, topology_file, input_dir, output_dir):
+    """Provides the logic to build an ansible hosts file from a jinja2 template
+    """
+    hostfile_template = os.path.join(input_dir, "ansible_hostfile.j2")
+    ansible_hostfile = os.path.join(output_dir, "ansible.hosts")
+
+    # the variables that will be passed to the template
+    jinja_variables = {"version": VERSION, "topology": topology_file}
+
+    # a dictionary of hostname: NetworkNode.to_dict()
+    node_dict = {}
+
+
+    for node in inventory.node_collection.itervalues():
+        # Don't do anything for fake devices
+        if node.function == "fake":
+            continue
+
+        if node.function in node_dict:
+            node_dict[node.function].append(node)
+        else:
+            node_dict[node.function] = [node]
+
+
+    jinja_variables["node_dict"] = node_dict
+    template = jinja2.Template(open(hostfile_template).read())
+
+    with open(ansible_hostfile, 'w') as hostfile:
+        hostfile.write(template.render(jinja_variables))
+
+
+def generate_management_devices(inventory, cli_args):
+    """Generate a management network
+    """
+    mgmt_template_dir = "./templates/auto_mgmt_network/"
+    mgmt_output = "./helper_scripts/auto-mgmt_network/"
+
+    if not os.path.isdir(mgmt_template_dir):
+        print(styles.FAIL + styles.BOLD +
+              "ERROR: " + mgmt_template_dir + " does not exist. " \
+              "Cannot populate templates!" +
+              styles.ENDC)
+        exit(1)
+
+    if not os.path.isdir(mgmt_output):
+        try:
+            os.mkdir(mgmt_output)
+        except:  #pylint: disable=W0702
+            print(styles.FAIL + styles.BOLD +
+                  "ERROR: Could not create output directory " +
+                  mgmt_output + "for mgmt template renders!" +
+                  styles.ENDC)
+            exit(1)
+
+    render_ansible_hostfile(inventory, cli_args, mgmt_template_dir, mgmt_output)
 
 
 def main():
     """Main point of entry to parse a topology file,
     build an inventory and product a Vagrantfile
     """
+    vagrant_template = "templates/Vagrantfile.j2"
     cli = parse_arguments()
     cli_args = cli.parse_args()
+    check_files(cli_args, vagrant_template)
 
     print styles.HEADER + "\n######################################"
     print styles.HEADER + "          Topology Converter"
@@ -1326,42 +1104,11 @@ def main():
 
     parser = ParseGraphvizTopology()
     parsed_topology = parser.parse_topology(cli_args.topology_file)
-    inventory = Inventory(parsed_topology, cli_args)
+    inventory = Inventory(parsed_topology)
 
     if cli_args.create_mgmt_device:
         inventory.build_mgmt_network()
 
-    # devices = populate_data_structures(inventory)
-
-    # remove_generated_files()
-
-    # render_jinja_templates(devices)
-
-    # generate_dhcp_mac_file(mac_map)
-
-    # generate_ansible_files()
-
-    # if create_mgmt_configs_only:
-    #     print(styles.GREEN + styles.BOLD +
-    #           "\n############\nSUCCESS: MGMT Network Templates have been regenerated!\n############" +
-    #           styles.ENDC)
-    # else:
-    #     print(styles.GREEN + styles.BOLD +
-    #           "\n############\nSUCCESS: Vagrantfile has been generated!\n############" +
-    #           styles.ENDC)
-    #     print(styles.GREEN + styles.BOLD +
-    #           "\n            %s devices under simulation." % (len(devices)) +
-    #           styles.ENDC)
-
-    # for device in inventory:
-    #     print(styles.GREEN + styles.BOLD +
-    #           "                %s" % (inventory[device]['hostname']) +
-    #           styles.ENDC)
-
-    # for warn_msg in warning:
-    #     print(warn_msg)
-
-    # print("\nDONE!\n")
 
     exit(0)
 

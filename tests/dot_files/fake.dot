@@ -1,0 +1,6 @@
+graph dc1 {
+ "leaf1" [function="fake"]
+ "leaf2" [function="leaf" os="CumulusCommunity/cumulus-vx" memory="200" config="./helper_scripts/extra_switch_config.sh"]
+   "leaf1":"swp40" -- "leaf2":"swp40"
+   "leaf1":"swp50" -- "leaf2":"swp50"
+}

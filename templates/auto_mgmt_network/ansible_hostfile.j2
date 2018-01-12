@@ -1,12 +1,11 @@
 # Created by Topology-Converter v{{ version }}
-#    Template Revision: v4.6.5
+#    Template Revision: v5.0.0
 #    https://github.com/cumulusnetworks/topology_converter
-#    using topology data from: {{ topology_file }}
+#    using topology data from: {{ topology }}
 
-{% for function in ["oob-switch", "exit", "superspine", "leaf", "spine", "tor", "host"] %}
-{%   for device in devices|selectattr("function", "equalto", function) %}
-{%     if loop.first %}
-[{{function}}]
-{%     endif -%}
-{{device.hostname}}{% if device.mgmt_ip is defined %} ansible_host={{device.mgmt_ip}}{% endif %} ansible_user=cumulus{% endfor %}
+{% for function, nodes in node_dict.items() %}
+[{{function}}s]
+{% for node in nodes %}
+{{node.hostname}}{% if node.mgmt_ip is defined %} ansible_host={{node.mgmt_ip}}{% endif %} ansible_user=cumulus{% endfor %}
 {% endfor %}
+

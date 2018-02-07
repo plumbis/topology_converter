@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 """   Topology Converter converts a given
 topology.dot file to a Vagrantfile can use
 the virtualbox or libvirt Vagrant providers
@@ -367,6 +367,9 @@ class NetworkEdge(object):
 class Inventory(object):
     """An Inventory represents the entire network, with all nodes and edges.
     """
+
+    # TODO: Add support for displaying total inventory memory usage
+
     # pylint: disable=R0902
     def __init__(self, current_libvirt_port=1024, libvirt_gap=8000):
         self.parsed_topology = None
@@ -642,8 +645,6 @@ class Inventory(object):
                 management_ips.add(str(node_ip))
 
             else:
-                if current_lease == dhcp_pool_size - 1:
-                    print "here"
 
                 if current_lease > dhcp_pool_size:
                     print(styles.FAIL + styles.BOLD +
@@ -1031,18 +1032,16 @@ def check_files(cli_args, vagrant_template):
     return True
 
 
-def render_ansible_hostfile(inventory, topology_file, input_dir, output_dir):
+def render_ansible_hostfile(inventory, topology_file, input_dir):
     """Provides the logic to build an ansible hosts file from a jinja2 template
     """
     hostfile_template = os.path.join(input_dir, "ansible_hostfile.j2")
-    ansible_hostfile = os.path.join(output_dir, "ansible.hosts")
 
     # the variables that will be passed to the template
     jinja_variables = {"version": VERSION, "topology": topology_file}
 
     # a dictionary of hostname: NetworkNode.to_dict()
     node_dict = {}
-
 
     for node in inventory.node_collection.itervalues():
         # Don't do anything for fake devices
@@ -1058,8 +1057,7 @@ def render_ansible_hostfile(inventory, topology_file, input_dir, output_dir):
     jinja_variables["node_dict"] = node_dict
     template = jinja2.Template(open(hostfile_template).read())
 
-    with open(ansible_hostfile, 'w') as hostfile:
-        hostfile.write(template.render(jinja_variables))
+    return template.render(jinja_variables)
 
 
 def generate_management_devices(inventory, cli_args):
@@ -1085,7 +1083,10 @@ def generate_management_devices(inventory, cli_args):
                   styles.ENDC)
             exit(1)
 
-    render_ansible_hostfile(inventory, cli_args, mgmt_template_dir, mgmt_output)
+    hostfile_contents = render_ansible_hostfile(inventory, cli_args, mgmt_template_dir)
+
+    with open(os.path.join(mgmt_output, "ansible.hosts"), 'w') as hostfile:
+        hostfile.write(hostfile_contents)
 
 
 def main():

@@ -12,11 +12,14 @@ class TestRenderAnsible(object):  # pylint: disable=W0612
 
     def test_simple_topology(self):
         topology_file = "./tests/dot_files/simple.dot"
+        expected_result_file = "./tests/expected_jinja_outputs/simple_ansible.hosts"
         parser = tc.ParseGraphvizTopology()
         parsed_topology = parser.parse_topology(topology_file)
         inventory = tc.Inventory()
         inventory.add_parsed_topology(parsed_topology)
+        result = tc.render_ansible_hostfile(inventory, topology_file, "./templates/auto_mgmt_network/")
 
-        tc.render_ansible_hostfile(inventory, topology_file, "./templates/auto_mgmt_network/", "./tests/jinja_results/")
+        print result
 
-        assert True
+        assert result == open(expected_result_file).read()
+

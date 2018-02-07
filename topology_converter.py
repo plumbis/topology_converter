@@ -1018,9 +1018,9 @@ def check_files(cli_args, vagrant_template):
         custom_template = str(cli_args.template[0][0])
         if not os.path.isfile(custom_template):
             print(styles.FAIL + styles.BOLD +
-                    " ### ERROR: provided template file-- \"" +
-                    custom_template + "\" does not exist!" +
-                    styles.ENDC)
+                  " ### ERROR: provided template file-- \"" +
+                  custom_template + "\" does not exist!" +
+                  styles.ENDC)
             exit(1)
 
     if not os.path.isfile(vagrant_template):

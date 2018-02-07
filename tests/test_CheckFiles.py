@@ -45,7 +45,8 @@ class TestCheckFiles(object):  # pylint: disable=R0903
         """Test passing a non-existent custom template
         """
         cli = tc.parse_arguments()
-        args = cli.parse_args(["tests/simple.dot", "-t", "templates/fake_Vagrantfile.j2", "Vagrantfile"])
+        args = cli.parse_args(
+            ["tests/simple.dot", "-t", "templates/fake_Vagrantfile.j2", "Vagrantfile"])
 
         tc.check_files(args, "templates/Vagrantfile.j2")
 

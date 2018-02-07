@@ -275,5 +275,5 @@ class Test_NetworkNode(object): # pylint: disable=R0904
 
         assert len(result.keys()) == len(expected_result.keys())
         assert set(result.keys()) == set(expected_result.keys())
-        for k,v in result.iteritems():
+        for k, v in result.iteritems():
             assert expected_result[k] == v

@@ -180,6 +180,7 @@ class TestCLI(object):  # pylint: disable=W0612
     def test_vagrantfile(self):
         """Test vagrantfile argumement
         """
-        long_parse = self.long_parser.parse_args(["tests/simple.dot", "--vagrantfile", "test_output.txt"])
+        long_parse = self.long_parser.parse_args(
+            ["tests/simple.dot", "--vagrantfile", "test_output.txt"])
 
         assert long_parse.vagrantfile == "test_output.txt"

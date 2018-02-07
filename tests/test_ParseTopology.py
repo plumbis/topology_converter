@@ -39,7 +39,8 @@ class TestParseTopology(object):
         good_topo_files = ["simple.dot", "reference_topology_3_4_3.dot",
                            "reference_topology_3_4_3_large_memory.dot",
                            "bento_box.dot", "incorrect_memory.dot", "no_os.dot",
-                           "no_function.dot", "spine01_not_defined.dot", "test_attribute.dot", "fake.dot"]
+                           "no_function.dot", "spine01_not_defined.dot", "test_attribute.dot",
+                           "fake.dot"]
 
         bad_topo_files = ["bad_dash.dot", "bad_quotes.dot",
                           "bad_ticks.dot", "bad_unicode_character.dot"]

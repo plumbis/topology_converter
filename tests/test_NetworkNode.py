@@ -5,7 +5,7 @@
 from nose.tools import raises
 import topology_converter as tc
 
-class Test_NetworkNode(object):
+class Test_NetworkNode(object): # pylint: disable=R0904
     """Test class for NetworkNode tests
     """
     # pylint: disable=W0201
@@ -246,3 +246,34 @@ class Test_NetworkNode(object):
 
         expected_result = "\n".join(output)
         assert expected_result == str(self.node)
+
+    def test_to_dict_all_values(self):
+        """Verify the dictionary generated with all values set
+        """
+        interface = tc.NetworkInterface(hostname="leaf01",
+                                        interface_name="swp51",
+                                        mac=None, ip=None)
+
+        self.node.os_version = "3.4.3"
+        self.node.other_attributes = {"superspine": "True"}
+        self.node.add_interface(interface)
+        result = self.node.to_dict()
+
+        expected_result = {}
+        expected_result["hostname"] = "leaf01"
+        expected_result["function"] = "leaf"
+        expected_result["vm_os"] = "CumulusCommunity/cumulus-vx"
+        expected_result["memory"] = "768"
+        expected_result["config"] = "./helper_scripts/oob_switch_config.sh"
+        expected_result["os_version"] = "3.4.3"
+        expected_result["tunnel_ip"] = "127.0.0.1"
+        expected_result["other_attributes"] = {"superspine": "True"}
+
+        print len(result.keys())
+        print ""
+        print len(expected_result.keys())
+
+        assert len(result.keys()) == len(expected_result.keys())
+        assert set(result.keys()) == set(expected_result.keys())
+        for k,v in result.iteritems():
+            assert expected_result[k] == v

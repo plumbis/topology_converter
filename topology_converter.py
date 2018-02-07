@@ -1015,13 +1015,13 @@ def check_files(cli_args, vagrant_template):
     """
 
     if cli_args.template:
-        for template_file in cli_args.template[0]:
-            if not os.path.isfile(template_file):
-                print(styles.FAIL + styles.BOLD +
-                      " ### ERROR: provided template file-- \"" +
-                      template_file + "\" does not exist!" +
-                      styles.ENDC)
-                exit(1)
+        custom_template = str(cli_args.template[0][0])
+        if not os.path.isfile(custom_template):
+            print(styles.FAIL + styles.BOLD +
+                    " ### ERROR: provided template file-- \"" +
+                    custom_template + "\" does not exist!" +
+                    styles.ENDC)
+            exit(1)
 
     if not os.path.isfile(vagrant_template):
         print(styles.FAIL + styles.BOLD +

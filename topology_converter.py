@@ -368,7 +368,7 @@ class Inventory(object):
     """An Inventory represents the entire network, with all nodes and edges.
     """
 
-    # TODO: Add support for displaying total inventory memory usage
+    # TODO: Add support for displaying total inventory memory usage pylint: disable=W0511
 
     # pylint: disable=R0902
     def __init__(self, current_libvirt_port=1024, libvirt_gap=8000):

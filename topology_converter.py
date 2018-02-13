@@ -6,23 +6,26 @@ Initially written by Eric Pulvino 2015-10-19
 
  hosted @ https://github.com/cumulusnetworks/topology_converter
 """
+# C0302 - Too many lines in module.
+# Classes should probably be broken out, future work.
+# Ignoring
 # pylint: disable=C0302
 
 import os
 import re
 import argparse
 import ipaddress
+import time
+from collections import OrderedDict
 import pydotplus
 import jinja2
-# import sys
-# import time
-# import pprint
 
 
 VERSION = "5.0.0"
 
-
-class styles(object):# pylint: disable=C0103, R0903
+# R0903 too few public methods
+# Overall error message styling needs to be improved, ignoring until that happens.
+class Styles(object): # pylint: disable=R0903
     """Defines the terminal text colors for messages
     """
     HEADER = '\033[95m'
@@ -38,6 +41,7 @@ class NetworkNode(object):
     """Object that represents a specific node in the network.
     This is similar to a graphviz node.
 
+
     Attributes:
         hostname: the name of the node
         function: the function in network of the node (e.g., leaf, spine, oob-server)
@@ -48,8 +52,9 @@ class NetworkNode(object):
         other_attributes: a catch all for any other node specific attributes
     """
 
-    # pylint: disable=R0902
-    # pylint: disable=R0913
+    # R0902: Too many instance attributes.
+    # R0913: Too many arguments
+    # pylint: disable=R0902,R0913
     def __init__(self, hostname, function, vm_os=None, memory=None,
                  config=None, os_version=None, tunnel_ip="127.0.0.1",
                  other_attributes=None):
@@ -80,6 +85,7 @@ class NetworkNode(object):
             }
         }
 
+        # ensure the hostname is valid
         if self.check_hostname(hostname):
             self.hostname = hostname
         else:
@@ -101,20 +107,20 @@ class NetworkNode(object):
             if config is None and function != "fake":
                 config = defaults[function]["config"]
                 if not os.path.isfile(config):
-                    print(styles.WARNING + styles.BOLD +
+                    print(Styles.WARNING + Styles.BOLD +
                           "    WARNING: Node \"" + hostname +
-                          " config file " + config + " does not exist" + styles.ENDC)
+                          " config file " + config + " does not exist" + Styles.ENDC)
 
         try:
             if int(memory) <= 0:
-                print(styles.FAIL + styles.BOLD +
+                print(Styles.FAIL + Styles.BOLD +
                       " ### ERROR -- Memory must be greater than 0mb on " +
-                      self.hostname + styles.ENDC)
+                      self.hostname + Styles.ENDC)
                 exit(1)
         except (ValueError, TypeError):
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR -- Memory value is invalid for " +
-                  self.hostname + styles.ENDC)
+                  self.hostname + Styles.ENDC)
             exit(1)
 
         self.vm_os = vm_os
@@ -155,32 +161,32 @@ class NetworkNode(object):
         # While a hostname may not contain other characters, such as the underscore character (_)
 
         if len(hostname.strip()) <= 0:
-            print(styles.FAIL + styles.BOLD +
-                  " ### ERROR: Node name is blank" + styles.ENDC)
+            print(Styles.FAIL + Styles.BOLD +
+                  " ### ERROR: Node name is blank" + Styles.ENDC)
 
             return False
 
         # Hostname can only start with a letter or number
         if not re.compile('[A-Za-z0-9]').match(hostname[0]):
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: Node name can only start with letters or numbers " +
-                  "'%s' is not valid!\n" % hostname + styles.ENDC)
+                  "'%s' is not valid!\n" % hostname + Styles.ENDC)
 
             return False
 
         # Hostname can not end with a dash
         if not re.compile('[A-Za-z0-9]').match(hostname[-1]):
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: Node name can only end with letters or numbers " +
-                  "'%s' is not valid!\n" % hostname + styles.ENDC)
+                  "'%s' is not valid!\n" % hostname + Styles.ENDC)
 
             return False
 
         # Hostname can only contain A-Z, 0-9 and "-"
         if not re.compile('^[A-Za-z0-9\-]+$').match(hostname): # pylint: disable=W1401
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: Node name can only contain letters numbers and dash(-) " +
-                  "'%s' is not valid!\n" % hostname + styles.ENDC)
+                  "'%s' is not valid!\n" % hostname + Styles.ENDC)
 
             return False
 
@@ -206,10 +212,10 @@ class NetworkNode(object):
         # and make sure there isn't a second interface
         # trying to be a pxe interface.
         if self.has_pxe_interface and network_interface.pxe_priority > 0:
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR -- Device " + self.hostname +
                   " sets pxebootinterface more than once." +
-                  styles.ENDC)
+                  Styles.ENDC)
             exit(1)
 
         # If this is the first time we've seen a pxe interface
@@ -222,6 +228,8 @@ class NetworkNode(object):
         return self
 
     def __str__(self):
+        """String representation of a NetworkNode
+        """
         output = []
         output.append("Hostname: " + (self.hostname or "None"))
         output.append("Function: " + (self.function or "None"))
@@ -238,6 +246,15 @@ class NetworkNode(object):
 class NetworkInterface(object):
     """A NetworkInterface is a single interface that can be attached
     to a NetworkNode and is part of a NetworkEdge.
+
+    A NetworkInterface should belong to exactly one NetworkNode,
+    exactly once.
+
+    The NetworkInterface is a unique object as a way to track the
+    attributes that are unique/specific to that NetworkInterface.
+
+    Note, that NetworkInterface is for a physical interface that
+    would be part of the virtual topology within the environment.
 
     Attributes:
     hostname - the hostname that this interface is attached to
@@ -260,23 +277,21 @@ class NetworkInterface(object):
         self.remote_port = remote_port
         self.attributes = {}
         self.pxe_priority = 0
-
-    # def add_mac_colon(self, mac_address, cli_args):
-    #     if cli_args.verbose:
-    #         print("MAC ADDRESS IS: \"%s\"" % mac_address)
-    #     return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
-
+        self.remote_hostname = None
+        self.remote_interface = None
+        self.remote_ip = None
 
     def remove_interface_slash(self, interface_name):
-        """Remove a / character from an interface name
+        """Remove a / character from an interface name and
+        replace it with "-" i.e., g0/0 becomes g0-0
         """
         if "/" in interface_name:
             new_interface = interface_name.replace('/', '-')
-            print(styles.WARNING + styles.BOLD +
+            print(Styles.WARNING + Styles.BOLD +
                   "    WARNING: Device " + str(self.hostname) + " interface"
                   " " + str(interface_name) + " contains a slash"
                   " and will be convereted to " + str(new_interface),
-                  styles.ENDC)
+                  Styles.ENDC)
 
             return new_interface
 
@@ -290,7 +305,9 @@ class NetworkInterface(object):
 
 
     def validate_mac(self, mac):
-        """Validate that the input MAC address
+        """Validate that the input MAC address is valid.
+        This includes filtering out things like broadcast,
+        multicast and all zero mac
         """
         if mac is None:
             return None
@@ -300,40 +317,40 @@ class NetworkInterface(object):
         mac = mac.strip().lower()
 
         if len(mac) > 12:
-            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is too long" + styles.ENDC)
+            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is too long" + Styles.ENDC)
             exit(1)
 
         if len(mac) < 12:
-            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is too short" + styles.ENDC)
+            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is too short" + Styles.ENDC)
             exit(1)
 
         try:
             int(mac, 16)
 
         except Exception: # pylint: disable=W0703
-            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
                   + mac + " could not be converted to hex. " +
-                  "Perhaps there are bad characters?" + styles.ENDC)
+                  "Perhaps there are bad characters?" + Styles.ENDC)
             exit(1)
 
         # Broadcast
         if mac == "ffffffffffff":
-            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is a broadcast address" + styles.ENDC)
+            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is a broadcast address" + Styles.ENDC)
             exit(1)
 
         # Invalid
         if mac == "000000000000":
-            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is an invalid all zero MAC" + styles.ENDC)
+            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is an invalid all zero MAC" + Styles.ENDC)
             exit(1)
 
         # Multicast
         if mac[:6] == "01005e":
-            print(styles.FAIL + styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is a multicast MAC" + styles.ENDC)
+            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
+                  + mac + " is a multicast MAC" + Styles.ENDC)
             exit(1)
 
         return mac
@@ -356,6 +373,7 @@ class NetworkInterface(object):
         return "\n".join(output)
 
 # pylint: disable=R0903
+# Too few public methods.
 class NetworkEdge(object):
     """A network edge is a collection of two NetworkInterface objects that share a link
     """
@@ -363,14 +381,24 @@ class NetworkEdge(object):
         self.left_side = left_side
         self.right_side = right_side
 
+        # Set the remote port information in the interfaces
+        self.right_side.remote_hostname = self.left_side.hostname
+        self.right_side.remote_interface = self.left_side.interface_name
+        self.left_side.hostname = self.right_side.remote_hostname
+        self.left_side.interface_name = self.right_side.remote_interface
+
 
 class Inventory(object):
     """An Inventory represents the entire network, with all nodes and edges.
+    The Inventory contains everything in the environment. All links, hosts, attributes, etc.
+
+    The Inventory object is the final datastructure representing the dot file.
     """
 
     # TODO: Add support for displaying total inventory memory usage pylint: disable=W0511
 
     # pylint: disable=R0902
+    # Too many instance attributes.
     def __init__(self, current_libvirt_port=1024, libvirt_gap=8000):
         self.parsed_topology = None
         self.provider = None
@@ -385,7 +413,6 @@ class Inventory(object):
         self.oob_server = None
         self.oob_switch = None
 
-
     def add_node(self, node):
         """Add a NetworkNode to the inventory. Returns the updated inventory
         """
@@ -394,8 +421,10 @@ class Inventory(object):
                                   "bento/ubuntu-16.04",
                                   "ubuntu/xenial64"]
 
+            # There are some OS images we know do not work
+            # Prevent them from being loaded.
             if node.vm_os in unsupported_images:
-                print(styles.FAIL + styles.BOLD + " ### ERROR: device " + node.hostname +
+                print(Styles.FAIL + Styles.BOLD + " ### ERROR: device " + node.hostname +
                       " -- Incompatible OS for libvirt provider.")
                 print "\tDo not attempt to use a mutated image"
                 print " for Ubuntu16.04 on Libvirt"
@@ -403,25 +432,31 @@ class Inventory(object):
                 print "\tlike yk0/ubuntu-xenial."
                 print "\tSee https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection" # pylint: disable=C0301
                 print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607" # pylint: disable=C0301
-                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + styles.ENDC # pylint: disable=C0301
+                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + Styles.ENDC # pylint: disable=C0301
 
                 exit(1)
 
+        # Identify the oob switch and server if they exist.
         if node.function == "oob-server":
             self.oob_server = node
         elif node.function == "oob-switch":
             self.oob_switch = node
 
+        # Don't allow something to be called "oob-mgmt-server"
+        # if it isn't the oob-mgmt-server.
+        # This could be made an option check, but is to prevent annoying
+        # problems if you forget to set the function.
         if node.hostname == "oob-mgmt-server" and self.oob_server is None:
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: oob-mgmt-server must be set to function = \"oob-server\"" +
-                  styles.ENDC)
+                  Styles.ENDC)
             exit(1)
 
+        # Same rules for the oob-mgmt-switch as above for the oob-mgmt-server.
         if node.hostname == "oob-mgmt-switch" and self.oob_switch is None:
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   "### ERROR: oob-mgmt-switch must be set to function = \"oob-switch\""
-                  + styles.ENDC)
+                  + Styles.ENDC)
             exit(1)
         self.node_collection[node.hostname] = node
 
@@ -429,7 +464,8 @@ class Inventory(object):
 
 
     def get_node_by_name(self, node_name):
-        """Return a specific NetworkNode() in the inventory by it's name
+        """Return a specific NetworkNode() in the inventory by it's name.
+        If the node can not be found None is returned.
         """
         if node_name not in self.node_collection:
             return None
@@ -438,20 +474,22 @@ class Inventory(object):
 
 
     def add_edge(self, network_edge):
-        """Add an edge to the inventory and links the edge to the associated NetworkNode objects.
+        """Add a NetworkEdge to the inventory and links the
+        edge to the associated NetworkNode objects.
         This assumes the NetworkNode objects have already been added to the inventory.
         This expectes a NetworkEdge() object and returns the updated inventory.
 
         Keyword Arguments:
-        network_edge - a tuple of NetworkEdge objects
+        network_edge - a NetworkEdge object
         """
 
         for side in [network_edge.left_side, network_edge.right_side]:
 
             # Check if the interface has already been used.
+            # Multiaccess interfaces are not supported.
             if self.get_node_by_name(side.hostname).get_interface(side.interface_name) is not None:
-                print(styles.FAIL + styles.BOLD + " ### ERROR -- Interface " + side.interface_name +
-                      " Already used on device: " + side.hostname + styles.ENDC)
+                print(Styles.FAIL + Styles.BOLD + " ### ERROR -- Interface " + side.interface_name +
+                      " Already used on device: " + side.hostname + Styles.ENDC)
                 exit(1)
 
             else:
@@ -470,11 +508,11 @@ class Inventory(object):
         # Build the local and remote ports for libvirt
         if self.provider == "libvirt":
             if self.current_libvirt_port > self.libvirt_gap:
-                print(styles.FAIL + styles.BOLD +
+                print(Styles.FAIL + Styles.BOLD +
                       " ### ERROR: Configured Port_Gap: (" + str(self.libvirt_gap) + ") \
                       exceeds the number of links in the topology." \
                       "Read the help options to fix.\n\n" +
-                      styles.ENDC)
+                      Styles.ENDC)
                 exit(1)
 
             network_edge.left_side.local_port = str(self.current_libvirt_port)
@@ -529,31 +567,43 @@ class Inventory(object):
         return self
 
     @staticmethod
-    def get_oob_ip(oob_server):
-        """Determine the correct IP for the oob server.
-        Either the user provided IP or 192.168.200.254/24
+    def get_oob_ip(oob_device):
+        """Determine the correct IP for the oob server or oob switch.
+        Either the user provided IP or 192.168.200.254/24 for oob-server
+        and 192.168.200.1/24 for oob-switch
         """
-        if "mgmt_ip" in oob_server.other_attributes:
+        if "mgmt_ip" in oob_device.other_attributes:
             try:
                 # If the netmask isn't provided, assume /24
-                if oob_server.other_attributes["mgmt_ip"].find("/") < 0:
+                if oob_device.other_attributes["mgmt_ip"].find("/") < 0:
                     return ipaddress.ip_interface(
-                        unicode(oob_server.other_attributes["mgmt_ip"] + "/24"))
+                        unicode(oob_device.other_attributes["mgmt_ip"] + "/24"))
 
                 # If they set the management IP manually
                 # on the existing server, use that one
-                return ipaddress.ip_interface(unicode(oob_server.other_attributes["mgmt_ip"]))
+                return ipaddress.ip_interface(unicode(oob_device.other_attributes["mgmt_ip"]))
             except Exception:  # pylint: disable=W0703
-                print(styles.FAIL + styles.BOLD +
-                      "Configured oob-mgmt-server management IP is invalid")
+                print(Styles.FAIL + Styles.BOLD +
+                      "Configured management IP is invalid on " + oob_device.hostname)
                 exit(1)
 
-        return ipaddress.ip_interface(u'192.168.200.254/24')
+        if oob_device.function == "oob-server":
+            return ipaddress.ip_interface(u'192.168.200.254/24')
+
+        if oob_device.function == "oob-switch":
+            return ipaddress.ip_interface(u'192.168.200.1/24')
+
+        # If we reach here something went wrong
+        print Styles.FAIL + Styles.BOLD + "Internal error trying to determine management device IP"
+
+        exit(1)
+
+        return None
 
     def build_mgmt_network(self): # pylint: disable=R0912,R0915
         """Build a management network and add it to the inventory.
-        This will create an oob-mgmt-switch and oob-mgmt-server
-        NetworkNode if they do not exist and will
+        This will create an oob-mgmt-switch and
+        oob-mgmt-server NetworkNode if they do not exist and will
         attach every inventory device's eth0 interface to
         the oob-mgmt-server
         """
@@ -593,6 +643,15 @@ class Inventory(object):
                                                    interface_name=mgmt_port)))
 
         management_ips.add(str(oob_server_ip))
+
+        # The management switch is a bit special
+        # it's the only device with a logical management interface
+        # as a result, we are going to put the IP and MAC in oob-mgmt-switch Node's attributes
+        # because we can't create an edge since it's not connected to anything.
+
+        switch_mac = self.get_mac()
+        switch_ip = self.get_oob_ip(oob_switch)
+        oob_switch.other_attributes["bridge"] = {"mac": switch_mac, "ip": switch_ip}
 
         # Look at all the hosts in the inventory and connect eth0 to the management switch
         for hostname, node_object in self.node_collection.iteritems():
@@ -647,12 +706,12 @@ class Inventory(object):
             else:
 
                 if current_lease > dhcp_pool_size:
-                    print(styles.FAIL + styles.BOLD +
+                    print(Styles.FAIL + Styles.BOLD +
                           " ### ERROR: Number of devices in management " +
                           "network (" + str(len(self.node_collection)) +
                           " including oob-server and oob-switch) exceeds" +
                           " DCHP pool size (" + str(dhcp_pool_size - dhcp_pool_start) + ")" +
-                          styles.ENDC)
+                          Styles.ENDC)
                     exit(1)
 
                 # If the oob-server is an IP in the middle of the range, try the next one
@@ -660,10 +719,10 @@ class Inventory(object):
 
                     # If picking the next IP exceeds the pool, exit.
                     if current_lease + 1 > dhcp_pool_size:
-                        print(styles.FAIL + styles.BOLD +
+                        print(Styles.FAIL + Styles.BOLD +
                               " ### ERROR: Number of devices in management " +
                               "network exceeds DCHP pool size (" + str(dhcp_pool_size) + ")" +
-                              styles.ENDC)
+                              Styles.ENDC)
                         exit(1)
 
                     current_lease += 1
@@ -713,13 +772,13 @@ class ParseGraphvizTopology(object):
             # 1.) The file changed or was deleted between lint_topology_file() and graphviz call
             # 2.) lint topo file should be extended to handle missed failure.
             # as a result this isn't in coverage
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: Cannot parse the provided topology.dot \
                   file (%s)\n     There is probably a syntax error \
                   of some kind, common causes include failing to \
                   close quotation marks and hidden characters from \
                   copy/pasting device names into the topology file."
-                  % (topology_file) + styles.ENDC)
+                  % (topology_file) + Styles.ENDC)
 
             exit(1)
 
@@ -732,10 +791,10 @@ class ParseGraphvizTopology(object):
             # if this is hit, it's either a corner, like file change
             # or we need to expand the linter
             print exception
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: There is a syntax error in your topology file \
                   (%s). Read the error output above for any clues as to the source."
-                  % (self.topology_file) + styles.ENDC)
+                  % (self.topology_file) + Styles.ENDC)
 
             exit(1)
 
@@ -779,41 +838,41 @@ class ParseGraphvizTopology(object):
                         line.encode('ascii', 'ignore')
 
                     except UnicodeDecodeError:
-                        print(styles.FAIL + styles.BOLD +
+                        print(Styles.FAIL + Styles.BOLD +
                               " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
                               Has hidden unicode characters in it which prevent it \
                               from being converted to ASCII cleanly. Try manually \
                               typing it instead of copying and pasting."
-                              % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + styles.ENDC)
+                              % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + Styles.ENDC)
                         return False
 
                     if line.count("\"") % 2 == 1:
-                        print(styles.FAIL + styles.BOLD +
+                        print(Styles.FAIL + Styles.BOLD +
                               " ### ERROR: Line %s: Has an odd \
                               number of quotation characters \
-                              (\").\n     %s\n" % (count, line) + styles.ENDC)
+                              (\").\n     %s\n" % (count, line) + Styles.ENDC)
                         return False
 
                     if line.count("'") % 2 == 1:
-                        print(styles.FAIL + styles.BOLD +
+                        print(Styles.FAIL + Styles.BOLD +
                               " ### ERROR: Line %s: Has an odd \
                               number of quotation characters \
-                              (').\n     %s\n" % (count, line) + styles.ENDC)
+                              (').\n     %s\n" % (count, line) + Styles.ENDC)
                         return False
 
                     if line.count(":") == 2:
                         if " -- " not in line:
-                            print(styles.FAIL + styles.BOLD +
+                            print(Styles.FAIL + Styles.BOLD +
                                   " ### ERROR: Line %s: Does not \
                                   contain the following sequence \" -- \" \
                                   to seperate the different ends of the link.\n     %s\n"
-                                  % (count, line) + styles.ENDC)
+                                  % (count, line) + Styles.ENDC)
 
                             return False
         except Exception: # pylint: disable=W0703
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   "Problem opening file, " + topology_file + " perhaps it doesn't exist?" +
-                  styles.ENDC)
+                  Styles.ENDC)
             return False
 
         return True
@@ -913,8 +972,8 @@ class ParseGraphvizTopology(object):
 
         # Verify that they provided an OS for devices that aren't pxehost
         if vm_os is None and not pxehost:
-            print styles.FAIL + styles.BOLD + \
-                  " ### ERROR: OS not provided for " + hostname + styles.ENDC
+            print Styles.FAIL + Styles.BOLD + \
+                  " ### ERROR: OS not provided for " + hostname + Styles.ENDC
             exit(1)
 
         return NetworkNode(hostname=hostname, function=function, vm_os=vm_os, memory=memory,
@@ -1017,19 +1076,25 @@ def check_files(cli_args, vagrant_template):
     if cli_args.template:
         custom_template = str(cli_args.template[0][0])
         if not os.path.isfile(custom_template):
-            print(styles.FAIL + styles.BOLD +
+            print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: provided template file-- \"" +
                   custom_template + "\" does not exist!" +
-                  styles.ENDC)
+                  Styles.ENDC)
             exit(1)
 
     if not os.path.isfile(vagrant_template):
-        print(styles.FAIL + styles.BOLD +
+        print(Styles.FAIL + Styles.BOLD +
               " ### ERROR: Default Vagrant Template \"" + vagrant_template + "\" does not exist!" +
-              styles.ENDC)
+              Styles.ENDC)
         exit(1)
 
     return True
+
+def format_mac(mac_address):
+    """Take in a mac address string like 00a22345feff0012
+    and return a mac formatted as 00:a2:23:45:fe:ff:00:12
+    """
+    return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
 
 
 def render_ansible_hostfile(inventory, topology_file, input_dir):
@@ -1040,7 +1105,6 @@ def render_ansible_hostfile(inventory, topology_file, input_dir):
     # the variables that will be passed to the template
     jinja_variables = {"version": VERSION, "topology": topology_file}
 
-    # a dictionary of hostname: NetworkNode.to_dict()
     node_dict = {}
 
     for node in inventory.node_collection.itervalues():
@@ -1060,33 +1124,342 @@ def render_ansible_hostfile(inventory, topology_file, input_dir):
     return template.render(jinja_variables)
 
 
-def generate_management_devices(inventory, cli_args):
-    """Generate a management network
+def render_dhcpd_conf(inventory, topology_file, input_dir):
+    """Generate a dhcpd.conf output based on the inventory using the jinja2 template
     """
-    mgmt_template_dir = "./templates/auto_mgmt_network/"
-    mgmt_output = "./helper_scripts/auto-mgmt_network/"
 
-    if not os.path.isdir(mgmt_template_dir):
-        print(styles.FAIL + styles.BOLD +
-              "ERROR: " + mgmt_template_dir + " does not exist. " \
-              "Cannot populate templates!" +
-              styles.ENDC)
+    dhcpd_conf_template = os.path.join(input_dir, "dhcpd.conf.j2")
+
+    jinja_variables = {"version": VERSION, "topology": topology_file}
+
+    # we wouldn't be building this if the oob-mgmt-server doesn't exist
+    oob_server = inventory.get_node_by_name("oob-mgmt-server")
+
+    # but check just in case
+    if oob_server is None:
+        print(Styles.FAIL + Styles.BOLD +
+              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
+              + Styles.ENDC)
         exit(1)
 
-    if not os.path.isdir(mgmt_output):
-        try:
-            os.mkdir(mgmt_output)
-        except:  #pylint: disable=W0702
-            print(styles.FAIL + styles.BOLD +
-                  "ERROR: Could not create output directory " +
-                  mgmt_output + "for mgmt template renders!" +
-                  styles.ENDC)
-            exit(1)
+    #ipaddress.network returns CIDR 192.168.1.0/24
+    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
+    jinja_variables["dhcp_subnet"] = str(oob_ipaddress.network).split("/")[0]
+    jinja_variables["dhcp_netmask"] = str(oob_ipaddress.netmask)
+    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+    jinja_variables["dhcp_start"] = "192.168.200.10"
+    jinja_variables["dhcp_end"] = "192.168.200.138"
 
-    hostfile_contents = render_ansible_hostfile(inventory, cli_args, mgmt_template_dir)
+    template = jinja2.Template(open(dhcpd_conf_template).read())
 
-    with open(os.path.join(mgmt_output, "ansible.hosts"), 'w') as hostfile:
-        hostfile.write(hostfile_contents)
+    return template.render(jinja_variables)
+
+
+def render_dhcpd_hosts(inventory, topology_file, input_dir):
+    """Generate the contents of a dhcpd.hosts static DHCP binding file
+    based on a jinja2 template
+    """
+    dhcpd_hosts_template = os.path.join(input_dir, "dhcpd.hosts.j2")
+
+    # the variables that will be passed to the template
+    jinja_variables = {"version": VERSION, "topology": topology_file}
+
+    # we wouldn't be building this if the oob-mgmt-server doesn't exist
+    oob_server = inventory.oob_server
+
+    # but check just in case
+    if oob_server is None:
+        print(Styles.FAIL + Styles.BOLD +
+              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
+              + Styles.ENDC)
+        exit(1)
+
+    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
+    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+
+    node_dict = {}
+
+    for node in inventory.node_collection.itervalues():
+        # Don't do anything for fake devices
+        if node.function == "fake":
+            continue
+
+        # OOB Mgmt Server doesn't use DHCP
+        if node.function == "oob-server":
+            continue
+
+        if node.function == "oob-switch":
+            mac_address = format_mac(node.other_attributes["bridge"]["mac"][2:])
+            node_dict[node.hostname] = {
+                "mac": mac_address, "ip": node.other_attributes["bridge"]["ip"]}
+
+        else:
+            dhcp_interface = "eth0"
+            # The mac is stored as 0x...., send the substring without the 0x part to be formatted
+            mac_address = format_mac(node.interfaces[dhcp_interface].mac[2:])
+            node_dict[node.hostname] = {
+                "mac": mac_address, "ip": node.interfaces[dhcp_interface].ip}
+
+        if "ztp" in node.other_attributes:
+            node_dict[node.hostname]["ztp"] = node.other_attributes["ztp"]
+        else:
+            if node.function in ("leaf", "spine", "oob-switch"):
+                node_dict[node.hostname]["ztp"] = "ztp_oob.sh"
+
+    jinja_variables["node_dict"] = node_dict
+    template = jinja2.Template(open(dhcpd_hosts_template).read())
+
+    return template.render(jinja_variables)
+
+
+def render_hosts_file(inventory, topology_file, input_dir):
+    """Generate the contents of a hosts static DNS lookup file
+    based on a jinja2 template
+    """
+    dns_hosts = os.path.join(input_dir, "hosts.j2")
+
+    # the variables that will be passed to the template
+    jinja_variables = {"version": VERSION, "topology": topology_file}
+
+    # we wouldn't be building this if the oob-mgmt-server doesn't exist
+    oob_server = inventory.oob_server
+
+    # but check just in case
+    if oob_server is None:
+        print(Styles.FAIL + Styles.BOLD +
+              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
+              + Styles.ENDC)
+        exit(1)
+
+    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
+    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+    jinja_variables["oob_hostname"] = oob_server.hostname
+
+    node_dict = {}
+
+    for node in inventory.node_collection.itervalues():
+
+        # We already have what we need for the oob server
+        if node.function == "oob-server":
+            continue
+
+        # Don't do anything for fake devices
+        if node.function == "fake":
+            continue
+
+        if node.function == "oob-switch":
+            node_dict[node.hostname] = {
+                "ip": str(node.other_attributes["bridge"]["ip"]).split("/")[0]}
+
+        else:
+            node_dict[node.hostname] = {"ip": node.interfaces["eth0"].ip}
+
+    jinja_variables["node_dict"] = node_dict
+    template = jinja2.Template(open(dns_hosts).read())
+
+    return template.render(jinja_variables)
+
+
+def render_oob_server_sh(inventory, topology_file, input_dir):
+    """Generate the contents of the oob server config.sh
+    file based on a jinja2 template
+    """
+    oob_config = os.path.join(input_dir, "OOB_Server_config_auto_mgmt.sh.j2")
+
+    # the variables that will be passed to the template
+    jinja_variables = {"version": VERSION, "topology": topology_file}
+
+    # we wouldn't be building this if the oob-mgmt-server doesn't exist
+    oob_server = inventory.oob_server
+
+    # but check just in case
+    if oob_server is None:
+        print(Styles.FAIL + Styles.BOLD +
+              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
+              + Styles.ENDC)
+        exit(1)
+
+    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
+    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+    jinja_variables["oob_cidr"] = str(oob_ipaddress)
+
+    if "ntp" in oob_server.other_attributes:
+        jinja_variables["oob"] = {"ntp": oob_server.other_attributes["ntp"]}
+    else:
+        jinja_variables["oob"] = {"ntp": "pool.ntp.org"}
+
+    template = jinja2.Template(open(oob_config).read())
+
+    return template.render(jinja_variables)
+
+
+def render_ztp_oob(inventory, topology_file, input_dir):
+    """Generate the contents of the default ztp script
+    based on a jinja2 template
+    """
+    oob_config = os.path.join(input_dir, "ztp_oob.sh.j2")
+
+    # the variables that will be passed to the template
+    jinja_variables = {"version": VERSION, "topology": topology_file}
+
+    # we wouldn't be building this if the oob-mgmt-server doesn't exist
+    oob_server = inventory.oob_server
+
+    # but check just in case
+    if oob_server is None:
+        print(Styles.FAIL + Styles.BOLD +
+              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
+              + Styles.ENDC)
+        exit(1)
+
+    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
+    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+
+    template = jinja2.Template(open(oob_config).read())
+
+    return template.render(jinja_variables)
+
+
+def render_vagrantfile(inventory, input_dir, cli): #pylint: disable=R0912
+    """Generate the contents of the Vagrantfile
+    based on a jinja2 template
+    """
+    if cli.template:
+        vagrant_template = cli.template
+    else:
+        vagrant_template = "Vagrantfile.j2"
+
+    # the variables that will be passed to the template
+    jinja_variables = {"version": VERSION, "topology": cli.topology_file, "cli_args": cli}
+
+    # time.time() returns float 1518118901.04, the whole number is good enough
+    jinja_variables["epoch_time"] = str(time.time()).split(".")[0]
+
+    # Dict of all functions in the topology
+    # key is the function
+    # value is list of hostnames
+    function_dict = {}
+    jinja_variables["known_functions"] = ["oob-switch", "internet", "hosts"
+                                          "exit", "superspine", "spine", "leaf", "tor"]
+    node_dict = OrderedDict()
+
+    # Iterate over all of the nodes
+    # Put them in both a function: node dict
+    # as well as a hostname: node dict
+    # this makes processing in the j2 file easier.
+    for node in inventory.node_collection.itervalues():
+        # Don't do anything for fake devices
+        if node.function == "fake":
+            continue
+
+        # if we've seen this function before
+        # append the hostname to the list
+        if node.function in function_dict:
+            function_dict[node.function].append(node)
+
+        else:
+            function_dict[node.function] = [node]
+
+
+    # We need an ordered collection of the devices in the network
+    # This allows us to bring up devices in a defined order.
+    # oob-server, oob-switch, exit, superspine, spine, leaf, tor, host
+    #
+    # To do this, check if we have anything of that function from function_dict
+    # if so, take the list of nodes with that function and put it in our OrderedDict
+    if "oob-server" in function_dict:
+        node_dict["oob-server"] = function_dict["oob-server"]
+
+    if "oob-switch" in function_dict:
+        node_dict["oob-switch"] = function_dict["oob-switch"]
+
+    if "exit" in function_dict:
+        node_dict["exit"] = function_dict["exit"]
+
+    if "superspine" in function_dict:
+        node_dict["superspine"] = function_dict["superspine"]
+
+    if "spine" in function_dict:
+        node_dict["spine"] = function_dict["spine"]
+
+    if "leaf" in function_dict:
+        node_dict["leaf"] = function_dict["leaf"]
+
+    if "tor" in function_dict:
+        node_dict["tor"] = function_dict["tor"]
+
+    if "host" in function_dict:
+        node_dict["host"] = function_dict["host"]
+
+    for function in function_dict:
+        if function not in node_dict:
+            node_dict[function] = function_dict[function]
+
+
+    jinja_variables["function_dict"] = function_dict
+    jinja_variables["nodes"] = node_dict
+
+    # It's required to set the jinja2 environment
+    # so that the {% include %} statements within the Vagrantfile.j2
+    # template knows where to look.
+    env = jinja2.Environment()
+    env.loader = jinja2.FileSystemLoader(input_dir)
+
+    # pass the format_mac() method to jinja2 as a filter
+    env.filters["format_mac"] = format_mac
+    template = env.get_template(vagrant_template)
+
+    return template.render(jinja_variables)
+
+
+def write_file(location, contents):
+    """Writes contents to a file
+    Keyword Arguments
+    location - the path of the file to write
+    contents - the string contents to write to the file
+    """
+    try:
+        with open(location, 'w') as output_file:
+            output_file.write(contents)
+    except:  #pylint: disable=W0702
+        print(Styles.FAIL + Styles.BOLD +
+              "ERROR: Could not write file " + location +
+              Styles.ENDC)
+        exit(1)
+
+
+# def generate_management_devices(inventory, cli_args):
+#     """Generate a management network
+#     """
+#     mgmt_template_dir = "./templates/auto_mgmt_network/"
+#     mgmt_output = "./helper_scripts/auto-mgmt_network/"
+
+#     # Verify that the directory for the templates exists
+#     if not os.path.isdir(mgmt_template_dir):
+#         print(Styles.FAIL + Styles.BOLD +
+#               "ERROR: " + mgmt_template_dir + " does not exist. " \
+#               "Cannot populate templates!" +
+#               Styles.ENDC)
+#         exit(1)
+
+#     # Verify the directory to write to exists
+#     if not os.path.isdir(mgmt_output):
+#         try:
+#             os.mkdir(mgmt_output)
+#         except:  #pylint: disable=W0702
+#             print(Styles.FAIL + Styles.BOLD +
+#                   "ERROR: Could not create output directory " +
+#                   mgmt_output + "for mgmt template renders!" +
+#                   Styles.ENDC)
+#             exit(1)
+
+#     # Get the contents to put in the Ansible hosts file
+#     hostfile_contents = render_ansible_hostfile(inventory, cli_args, mgmt_template_dir)
+#     ansible_hosts_location = os.path.join(mgmt_output, "ansible.hosts")
+
+#     write_file(ansible_hosts_location, hostfile_contents)
+
+
 
 
 def main():
@@ -1098,16 +1471,16 @@ def main():
     cli_args = cli.parse_args()
     check_files(cli_args, vagrant_template)
 
-    print styles.HEADER + "\n######################################"
-    print styles.HEADER + "          Topology Converter"
-    print styles.HEADER + "######################################"
-    print styles.BLUE + "           originally written by Eric Pulvino"
+    print Styles.HEADER + "\n######################################"
+    print Styles.HEADER + "          Topology Converter"
+    print Styles.HEADER + "######################################"
+    print Styles.BLUE + "           originally written by Eric Pulvino"
 
     parser = ParseGraphvizTopology()
     parsed_topology = parser.parse_topology(cli_args.topology_file)
     inventory = Inventory(parsed_topology)
 
-    if cli_args.create_mgmt_device:
+    if cli_args.create_mgmt_network:
         inventory.build_mgmt_network()
 
 
@@ -1115,3 +1488,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Support very large OOB networks. Figure out how to split at 64 ports or so
+# Allow the ability to add/modify links without requiring full
+#       vagrant destroy/vagrant up. Export datastructure somehow
+# Allow a server to be added to OOB while the full OOB is generated automatically.
+# Allow selective DHCP default route
+# Allow selective mgmt VRF in ZTP
+# Change management network to /16
+# oob-mgmt-switch bridge interface needs an IP and MAC.
+#    Currently it will not be assigned in dhcpd.hosts
+#    problem is that everying expects physical interfaces/edge.
+#    May be possible with a FAKE device connected

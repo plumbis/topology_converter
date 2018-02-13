@@ -1,18 +1,15 @@
 # Created by Topology-Converter v{{ version }}
-#    Template Revision: v4.6.5
+#    Template Revision: v5.0.0
 
-{% if devices[0].function == "oob-server" %}
-127.0.0.1 localhost 
-127.0.1.1 {{ devices[0].hostname }}
 
-{{ devices[0].mgmt_ip }} {{ devices[0].hostname }}
+127.0.0.1 localhost
+127.0.1.1 {{ oob_hostname }}
 
-{% for device in devices %}{% if device.mgmt_ip is defined %}{% if device.function != "oob-server" %}
-{{ device.mgmt_ip }} {{ device.hostname }}{% endif %}{% endif %}{% endfor %}{% else %}
-    #### HOSTS CANNOT BE WRITTEN BECAUSE
-    ####     NO DEVICE has FUNCTION="oob-server"
-{% endif %}
+{{ oob_server_ip }} {{ oob_hostname }}
 
+{% for hostname, attributes in node_dict.items() %}
+{{ attributes["ip"] }} {{ hostname }}
+{%- endfor %}
 
 # The following lines are desirable for IPv6 capable hosts
 ::1     localhost ip6-localhost ip6-loopback

@@ -5,6 +5,7 @@
 
 import topology_converter as tc
 
+
 class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
     """Test suite for the NetworkInterface() topology converter object
     """
@@ -15,16 +16,18 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         self.cli = tc.parse_arguments().parse_args(["./tests/dot_files/simple.dot"])
 
     def test_simple_network(self):
+
         """Test building the management network for the simple topology
         """
+        self.cli.provider = "virtualbox"
         parser = tc.ParseGraphvizTopology()
         parsed_topology = parser.parse_topology(self.cli.topology_file)
         inventory = tc.Inventory()
         inventory.add_parsed_topology(parsed_topology)
+        assert True
 
-        ########
-        # TODO  pylint: disable=W0511
-        # This method call will write the file ./helper_scripts/auto-mgmt_network/ansible.hosts
-        # We need to figure out how to mock the write.
-        # The contents that are written are tested in test_render_ansible_hostfile
-        #tc.generate_management_devices(inventory, self.cli)
+#         ########
+#         # This method call will write the file ./helper_scripts/auto-mgmt_network/ansible.hosts
+#         # We need to figure out how to mock the write.
+#         # The contents that are written are tested in test_render_ansible_hostfile
+#         #tc.generate_management_devices(inventory, self.cli)

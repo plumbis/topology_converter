@@ -1,6 +1,6 @@
 #!/bin/bash
 # Created by Topology-Converter v{{ version }}
-#    Template Revision: v4.6.5
+#    Template Revision: v5.0.0
 #    https://github.com/cumulusnetworks/topology_converter
 #    using topology data from: {{ topology_file }}
 
@@ -40,7 +40,7 @@ install_puppet(){
     sed -i 's/-Xms2g/-Xms512m/g' /etc/default/puppetserver
     sed -i 's/-Xmx2g/-Xmx512m/g' /etc/default/puppetserver
     echo "*" > /etc/puppetlabs/puppet/autosign.conf
-    sed -i 's/{{ devices[0].mgmt_ip }}/{{ devices[0].mgmt_ip }} puppet /g'>> /etc/hosts
+    sed -i 's/{{ oob_server_ip }}/{{ oob_server_ip }} puppet /g'>> /etc/hosts
 }
 
 install_ansible(){
@@ -79,6 +79,7 @@ cat <<EOT > /etc/network/interfaces
 auto lo
 iface lo inet loopback
 
+{#
 {% if devices[0].vagrant is defined %}
 auto {{ devices[0].vagrant }}
 iface {{ devices[0].vagrant }} inet dhcp
@@ -86,10 +87,11 @@ iface {{ devices[0].vagrant }} inet dhcp
 auto vagrant
 iface vagrant inet dhcp
 {% endif %}
+#}
 
 auto eth1
 iface eth1 inet static
-    address {{ devices[0].mgmt_ip }}{{ devices[0].mgmt_cidrmask }}
+    address {{ oob_cidr }}
 EOT
 
 echo " ### Overwriting DNS Server to 8.8.8.8 ###"
@@ -122,7 +124,7 @@ filegen loopstats file loopstats type day enable
 filegen peerstats file peerstats type day enable
 filegen clockstats file clockstats type day enable
 
-server clock.rdu.cumulusnetworks.com
+server {{ oob["ntp"] }}
 
 # By default, exchange time with everybody, but don't allow configuration.
 restrict -4 default kod notrap nomodify nopeer noquery
@@ -187,7 +189,7 @@ if [ $puppet -eq 1 ]; then
 sudo rm -rf /etc/puppetlabs/code/environments/production
 sudo ln -s  /home/cumulus/$REPONAME/puppet/ /etc/puppetlabs/code/environments/production
 sudo /opt/puppetlabs/bin/puppet module install puppetlabs-stdlib
-#sudo bash -c 'echo "certname = {{ devices[0].mgmt_ip }}" >> /etc/puppetlabs/puppet/puppet.conf'
+#sudo bash -c 'echo "certname = {{ oob_server_ip }}" >> /etc/puppetlabs/puppet/puppet.conf'
 echo " ### Starting PUPPET Master ###"
 echo "     (this may take a while 30 secs or so...)"
 sudo systemctl restart puppetserver.service

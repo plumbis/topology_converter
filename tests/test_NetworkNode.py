@@ -6,6 +6,7 @@
 # pylint: disable=C0103,R0201
 from nose.tools import raises
 import topology_converter as tc
+import ipaddress
 
 class Test_NetworkNode(object): # pylint: disable=R0904
     """Test class for NetworkNode tests
@@ -306,3 +307,41 @@ class Test_NetworkNode(object): # pylint: disable=R0904
             other_attributes={
                 "ssh_port":"rocketturtle",
             })
+
+    @raises(SystemExit)
+    def test_get_node_mgmt_ip_invalid(self):
+        """Test setting an invalid management IP
+        """
+        tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip":"rocketturtle",
+            })
+
+    def test_get_node_mgmt_ip_with_mask(self):
+        """Test setting a management IP with a subnet mask
+        """
+        test_node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip":"10.1.1.1/24",
+            })
+
+        assert test_node.mgmt_ip == ipaddress.ip_interface(u"10.1.1.1/24")
+
+    def test_get_node_mgmt_ip_without_mask(self):
+        """Test setting a management IP withtout a subnet mask
+        """
+        test_node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip":"10.1.1.1",
+            })
+
+        assert test_node.mgmt_ip == ipaddress.ip_interface(u"10.1.1.1/24")

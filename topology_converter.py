@@ -219,7 +219,6 @@ class NetworkNode(object):
     def get_node_mgmt_ip(self):
         """Determine the management IP and return it as an IPInterface object.
         """
-
         if "mgmt_ip" in self.other_attributes:
             try:
                 # Check if there is a mask on the mgmt_ip attribute

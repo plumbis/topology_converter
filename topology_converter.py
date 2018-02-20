@@ -22,6 +22,7 @@ import jinja2
 
 
 VERSION = "5.0.0"
+VERBOSE = False
 
 # R0903 too few public methods
 # Overall error message styling needs to be improved, ignoring until that happens.
@@ -31,9 +32,9 @@ class Styles(object): # pylint: disable=R0903
     HEADER = '\033[95m'
     BLUE = '\033[94m'
     GREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    BOLD = '\033[1m'
+    WARNING = ''
+    FAIL = ''
+    BOLD = ''
     UNDERLINE = '\033[4m'
     ENDC = '\033[0m'
 
@@ -41,6 +42,12 @@ class NetworkNode(object):
     """Object that represents a specific node in the network.
     This is similar to a graphviz node.
 
+    Many of the attributes that can be set for a node are captured
+    as instance variables. Anything not explicitly managed can be
+    accessed through "other_attributes".
+
+    In general, anything that does not require additional processing
+    or error checking can be managed through other_attributes.
 
     Attributes:
         hostname: the name of the node
@@ -54,10 +61,15 @@ class NetworkNode(object):
 
     # R0902: Too many instance attributes.
     # R0913: Too many arguments
-    # pylint: disable=R0902,R0913
+    # R0912: Too many branches
+    # R0915: Too many statements
+    # pylint: disable=R0902,R0913,R0912,R0915
     def __init__(self, hostname, function, vm_os=None, memory=None,
                  config=None, os_version=None, tunnel_ip="127.0.0.1",
                  other_attributes=None):
+
+        # define default parameters for known functions.
+        # all will be overridden by any provided attributes.
         defaults = {
             "fake": {
                 "os": "None",
@@ -92,36 +104,107 @@ class NetworkNode(object):
             exit(1)
 
         self.function = function
+
+        # Set optional attribute defaults
+        # If they are set, these values will be changed later
+        self.pxehost = False
+        self.playbook = False
+        self.remap = True
+        self.ports = False
+        self.ssh_port = False
+        self.vagrant_user = "vagrant"
+        self.legacy = False
+        self.vagrant_interface = "vagrant"
+
+        if VERBOSE:
+            print "Building NetworkNode " + self.hostname + ". Function set as " + self.function
+
         if other_attributes is None:
+            if VERBOSE:
+                print "No other attributes found"
             self.other_attributes = dict()
         else:
             self.other_attributes = other_attributes
 
-        self.pxehost = "pxehost" in self.other_attributes
+        if "pxehost" in self.other_attributes:
+            self.pxehost = self.other_attributes["pxehost"] == "True"
+            if VERBOSE:
+                print "Pxehost set for " + self.hostname \
+                + ". Default OS assignment will be skipped"
 
         if self.function in defaults:
             if vm_os is None and not self.pxehost:
                 vm_os = defaults[function]["os"]
+                if VERBOSE:
+                    print "OS not found, using default of : " + vm_os
+
             if memory is None:
                 memory = defaults[function]["memory"]
+                if VERBOSE:
+                    print "No memory defined, using default of " + memory
+
             if config is None and function != "fake":
                 config = defaults[function]["config"]
+                if VERBOSE:
+                    print "No config defined, using default of " + config
                 if not os.path.isfile(config):
-                    print(Styles.WARNING + Styles.BOLD +
-                          "    WARNING: Node \"" + hostname +
-                          " config file " + config + " does not exist" + Styles.ENDC)
+                    print_warning("Node \"" + hostname +
+                                  " config file " + config + " does not exist")
 
         try:
             if int(memory) <= 0:
-                print(Styles.FAIL + Styles.BOLD +
-                      " ### ERROR -- Memory must be greater than 0mb on " +
-                      self.hostname + Styles.ENDC)
-                exit(1)
+                print_error("Memory must be greater than 0mb on " + self.hostname)
+
         except (ValueError, TypeError):
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR -- Memory value is invalid for " +
-                  self.hostname + Styles.ENDC)
-            exit(1)
+            print_error("Memory value is invalid for " + self.hostname)
+
+        if "playbook" in self.other_attributes:
+            self.playbook = self.other_attributes["playbook"]
+            if VERBOSE:
+                print "Found playbook " + self.playbook
+
+        if "remap" in self.other_attributes:
+            self.remap = self.other_attributes["remap"] == "True"
+            if VERBOSE:
+                print "Remap found and set to " + str(self.remap)
+
+        if "ports" in self.other_attributes:
+            try:
+                if int(self.other_attributes["ports"]) <= 0:
+                    print_error("Ports value " + self.hostname + " must be greater than 0")
+            except(ValueError, TypeError):
+                print_error("Ports value is invalid for " + self.hostname)
+
+            self.ports = self.other_attributes["ports"]
+            if VERBOSE:
+                print "Ports " + self.ports + " defined on " + self.hostname
+
+        if "ssh_port" in self.other_attributes:
+            try:
+                if int(self.other_attributes["ssh_port"]) <= 1024:
+                    print_error("SSH port value for " +
+                                self.hostname + " must be greater than 1024")
+            except(ValueError, TypeError):
+                print_error("SSH port value is invalid for " + self.hostname)
+
+            self.ssh_port = self.other_attributes["ssh_port"]
+            if VERBOSE:
+                print "SSH port " + self.ssh_port + " defined on " + self.hostname
+
+        if "vagrant" in self.other_attributes:
+            self.vagrant_interface = self.other_attributes["vagrant"]
+            if VERBOSE:
+                print "Vagrant interface " + self.vagrant_interface + " defined on " + self.hostname
+
+        if "vagrant_user" in self.other_attributes:
+            self.vagrant_user = self.other_attributes["vagrant_user"]
+            if VERBOSE:
+                print "Vagrant user " + self.vagrant_user + " defined on " + self.hostname
+
+        if "legacy" in self.other_attributes:
+            self.legacy = self.other_attributes["legacy"] == "True"
+            if VERBOSE:
+                print "Legacy flag set to " + self.legacy + " on " + self.hostname
 
         self.vm_os = vm_os
         self.memory = memory
@@ -131,19 +214,6 @@ class NetworkNode(object):
         self.os_version = os_version
         self.has_pxe_interface = False
 
-    def to_dict(self):
-        """Return a dictionary representation of the Node object
-        """
-        return {
-            "hostname": self.hostname,
-            "function": self.function,
-            "vm_os": self.vm_os,
-            "memory": self.memory,
-            "config": self.config,
-            "os_version": self.os_version,
-            "tunnel_ip": self.tunnel_ip,
-            "other_attributes": self.other_attributes
-        }
 
     @staticmethod
     def check_hostname(hostname):
@@ -212,11 +282,7 @@ class NetworkNode(object):
         # and make sure there isn't a second interface
         # trying to be a pxe interface.
         if self.has_pxe_interface and network_interface.pxe_priority > 0:
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR -- Device " + self.hostname +
-                  " sets pxebootinterface more than once." +
-                  Styles.ENDC)
-            exit(1)
+            print_error(" Device " + self.hostname + " sets pxebootinterface more than once.")
 
         # If this is the first time we've seen a pxe interface
         # then flip the flag on the Node
@@ -227,20 +293,45 @@ class NetworkNode(object):
 
         return self
 
-    def __str__(self):
-        """String representation of a NetworkNode
-        """
-        output = []
-        output.append("Hostname: " + (self.hostname or "None"))
-        output.append("Function: " + (self.function or "None"))
-        output.append("OS: " + (self.vm_os or "None"))
-        output.append("OS Version: " + (self.os_version or "None"))
-        output.append("Memory: " + (self.memory or "None"))
-        output.append("Config: " + (self.config or "None"))
-        output.append("Libvirt Tunnel IP: " + (self.tunnel_ip or "None"))
-        output.append("Attributes: " + (str(self.other_attributes) or "None"))
-        output.append("Interfaces: " + (str(self.interfaces) or "None"))
-        return "\n".join(output)
+    # This may be removed later
+    # Unclear what the need for a string method is at this point
+    #
+    # def __str__(self):
+    #     """String representation of a NetworkNode
+    #     Print it out in graphvis notation.
+    #     """
+    #     # Notice that there are no spaces between optional attributes.
+    #     # When the attribute is generated append the space there.
+    #     # this is to prevent something like "function=spine            ssh_port=22"
+
+    #     vm_os = "\"" + self.vm_os + "\" " if self.vm_os else ""
+    #     os_version = "\"" + self.os_version + "\" " if self.os_version else ""
+    #     memory = "\"" + self.memory + "\" " if self.memory else ""
+    #     config = "\"" + self.config + "\" " if self.config else ""
+    #     playbook = "\"" + self.playbook + "\" " if self.playbook else ""
+    #     tunnel_ip = "\"" + self.tunnel_ip + "\" " if self.tunnel_ip else ""
+    #     pxehost = "\"" + str(self.pxehost) + "\" " if self.pxehost else ""
+    #     remap = "\"" + str(self.remap) + "\" " if self.remap else ""
+    #     ports = "\"" + self.ports + "\" " if self.ports else ""
+    #     ssh_port = "\"" + self.ssh_port + "\" " if self.ssh_port else ""
+    #     vagrant_interface = "\"" + self.vagrant_interface + "\" " if self.vagrant_interface else ""
+    #     vagrant_user = "\"" + self.vagrant_user + "\" " if self.vagrant_user else ""
+    #     legacy = "\"" + self.legacy + "\" " if self.legacy else ""
+
+    #     output = "\"{hostname}\" [function=\"{function}\" os=\"{vm_os}\"{os_version}\
+    #     {memory}{config}{playbook}{tunnel_ip}{pxehost}{remap}{ports}{ssh_port}\
+    #     {vagrant_interface}{vagrant_user}{legacy}]".format(hostname=self.hostname,
+    #                                                        function=self.function, vm_os=vm_os,
+    #                                                        os_version=os_version,
+    #                                                        memory=memory, config=config,
+    #                                                        playbook=playbook,
+    #                                                        tunnel_ip=tunnel_ip, pxehost=pxehost,
+    #                                                        remap=remap,
+    #                                                        ports=ports, ssh_port=ssh_port,
+    #                                                        vagrant_interface=vagrant_interface,
+    #                                                        vagrant_user=vagrant_user, legacy=legacy)
+
+    #     return output
 
 
 class NetworkInterface(object):
@@ -1459,7 +1550,26 @@ def write_file(location, contents):
 
 #     write_file(ansible_hosts_location, hostfile_contents)
 
+def print_warning(warning_string):
+    """
+    Format and print warning messages
+    """
+    warning_format = "\033[93m"
+    bold_format = "\033[1m"
+    endc = '\033[0m'
+    print warning_format + bold_format + "    WARNING: " + warning_string + endc
 
+
+def print_error(error_string):
+    """
+    Format and print error messages.
+    Also exit the program
+    """
+    error_format = "\033[91m"
+    bold_format = "\033[1m"
+    endc = '\033[0m'
+    print error_format + bold_format + " ### ERROR -- " + error_string + endc
+    exit(1)
 
 
 def main():

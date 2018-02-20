@@ -20,16 +20,65 @@ class Test_NetworkNode(object): # pylint: disable=R0904
         self.invalid_hostnames = [".leaf", "-leaf", "_leaf", "lea.f", "leaf.", "leaf-", " leaf"
                                   "leaf ", "le af", "   "]
 
-    def test_init(self):  # pylint: disable=R0201
-        """Test building a NetworkNode
+    def test_init_minimum_settings(self):
+        """Test buildinga  NetworkNode with only the required settings.
         """
-        node = tc.NetworkNode("leaf01", "leaf", "cumuluscommunity/cumulus-vx",
-                              "768", "./helper_scripts/oob_switch_config.sh")
+        node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768")
 
         assert node.hostname == "leaf01"
         assert node.function == "leaf"
-        assert node.vm_os == "cumuluscommunity/cumulus-vx"
+        assert node.vm_os is None
+        assert node.os_version is None
         assert node.memory == "768"
+        assert node.config is None
+        assert node.tunnel_ip == "127.0.0.1"
+        assert not node.playbook
+        assert not node.pxehost
+        assert node.remap
+        assert not node.ports
+        assert node.vagrant_interface == "vagrant"
+        assert node.vagrant_user == "vagrant"
+        assert not node.legacy
+
+    def test_init_all_settings(self):
+        """Test building a NetworkNode with all optional settings.
+        """
+        node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            vm_os="CumulusCommunity/cumulus-vx",
+            os_version="3.5.1",
+            memory="768",
+            config="./helper_scripts/oob_switch_config.sh",
+            tunnel_ip="127.0.0.1",
+            other_attributes={
+                "playbook":"scripts/ansible_playbook.yml",
+                "pxehost":"True",
+                "remap":"False",
+                "ports":"32",
+                "ssh_port":"1025",
+                "vagrant":"eth0",
+                "vagrant_user":"cumulus",
+                "legacy":"True"
+            })
+
+        assert node.hostname == "leaf01"
+        assert node.function == "leaf"
+        assert node.vm_os == "CumulusCommunity/cumulus-vx"
+        assert node.os_version == "3.5.1"
+        assert node.memory == "768"
+        assert node.config == "./helper_scripts/oob_switch_config.sh"
+        assert node.tunnel_ip == "127.0.0.1"
+        assert node.playbook == "scripts/ansible_playbook.yml"
+        assert node.pxehost
+        assert not node.remap
+        assert node.ports == "32"
+        assert node.vagrant_interface == "eth0"
+        assert node.vagrant_user == "cumulus"
+        assert node.legacy
 
 
     def test_check_hostname_valid(self):
@@ -196,84 +245,111 @@ class Test_NetworkNode(object): # pylint: disable=R0904
         self.node.add_interface(interface1)
         self.node.add_interface(interface2)
 
-
-    def test_str_all_values(self):
-        """Test that print output is as expected with all values set
+    @raises(SystemExit)
+    def test_zero_ports(self):
+        """Test that setting ports to zero causes exit
         """
-        interface = tc.NetworkInterface(hostname="leaf01",
-                                        interface_name="swp51",
-                                        mac=None, ip=None)
+        node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "ports":"0",
+            })
 
-        self.node.os_version = "3.4.3"
-        self.node.other_attributes = {"superspine": "True"}
-        self.node.add_interface(interface)
-        output = []
-        output.append("Hostname: " + "leaf01")
-        output.append("Function: " + "leaf")
-        output.append("OS: " + "CumulusCommunity/cumulus-vx")
-        output.append("OS Version: " + "3.4.3")
-        output.append("Memory: " + "768")
-        output.append("Config: " + "./helper_scripts/oob_switch_config.sh")
-        output.append("Libvirt Tunnel IP: " + "127.0.0.1")
-        output.append("Attributes: " + str({"superspine": "True"}))
-        output.append("Interfaces: " + str({"swp51": interface}))
-        expected_result = "\n".join(output)
-        assert expected_result == str(self.node)
-
-    def test_str_no_values(self):
-        """Test that string output is correct with no values set
+    @raises(SystemExit)
+    def test_non_number_ports(self):
+        """Test that setting ports to non-int causes exit
         """
-        self.node.hostname = None
-        self.node.function = None
-        self.node.vm_os = None
-        self.node.os_version = None
-        self.node.memory = None
-        self.node.config = None
-        self.node.tunnel_ip = None
-        self.node.other_attributes = None
-        self.node.interfaces = None
+        node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "ports":"rocketturtle",
+            })
 
-        output = []
-        output.append("Hostname: " + "None")
-        output.append("Function: " + "None")
-        output.append("OS: " + "None")
-        output.append("OS Version: " + "None")
-        output.append("Memory: " + "None")
-        output.append("Config: " + "None")
-        output.append("Libvirt Tunnel IP: " + "None")
-        output.append("Attributes: " + "None")
-        output.append("Interfaces: " + "None")
-
-        expected_result = "\n".join(output)
-        assert expected_result == str(self.node)
-
-    def test_to_dict_all_values(self):
-        """Verify the dictionary generated with all values set
+    @raises(SystemExit)
+    def test_zero_ssh_port(self):
+        """Test that setting ssh_port to zero causes exit
         """
-        interface = tc.NetworkInterface(hostname="leaf01",
-                                        interface_name="swp51",
-                                        mac=None, ip=None)
+        node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "ssh_port":"0",
+            })
 
-        self.node.os_version = "3.4.3"
-        self.node.other_attributes = {"superspine": "True"}
-        self.node.add_interface(interface)
-        result = self.node.to_dict()
+    @raises(SystemExit)
+    def test_less_than_1024_ssh_port(self):
+        """Test that setting ssh_port to <1024 causes exit
+        """
+        node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "ssh_port":"22",
+            })
 
-        expected_result = {}
-        expected_result["hostname"] = "leaf01"
-        expected_result["function"] = "leaf"
-        expected_result["vm_os"] = "CumulusCommunity/cumulus-vx"
-        expected_result["memory"] = "768"
-        expected_result["config"] = "./helper_scripts/oob_switch_config.sh"
-        expected_result["os_version"] = "3.4.3"
-        expected_result["tunnel_ip"] = "127.0.0.1"
-        expected_result["other_attributes"] = {"superspine": "True"}
+    @raises(SystemExit)
+    def test_non_number_ssh_port(self):
+        """Test that setting ssh_port to non-int causes exit
+        """
+        node = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "ssh_port":"rocketturtle",
+            })
+    # def test_str_all_values(self):
+    #     """Test that print output is as expected with all values set
+    #     """
+    #     interface = tc.NetworkInterface(hostname="leaf01",
+    #                                     interface_name="swp51",
+    #                                     mac=None, ip=None)
 
-        print len(result.keys())
-        print ""
-        print len(expected_result.keys())
+    #     self.node.os_version = "3.4.3"
+    #     self.node.other_attributes = {"superspine": "True"}
+    #     self.node.add_interface(interface)
+    #     output = []
+    #     output.append("Hostname: " + "leaf01")
+    #     output.append("Function: " + "leaf")
+    #     output.append("OS: " + "CumulusCommunity/cumulus-vx")
+    #     output.append("OS Version: " + "3.4.3")
+    #     output.append("Memory: " + "768")
+    #     output.append("Config: " + "./helper_scripts/oob_switch_config.sh")
+    #     output.append("Libvirt Tunnel IP: " + "127.0.0.1")
+    #     output.append("Attributes: " + str({"superspine": "True"}))
+    #     output.append("Interfaces: " + str({"swp51": interface}))
+    #     expected_result = "\n".join(output)
+    #     assert expected_result == str(self.node)
 
-        assert len(result.keys()) == len(expected_result.keys())
-        assert set(result.keys()) == set(expected_result.keys())
-        for k, v in result.iteritems():
-            assert expected_result[k] == v
+    # def test_str_no_values(self):
+    #     """Test that string output is correct with no values set
+    #     """
+    #     self.node.hostname = None
+    #     self.node.function = None
+    #     self.node.vm_os = None
+    #     self.node.os_version = None
+    #     self.node.memory = None
+    #     self.node.config = None
+    #     self.node.tunnel_ip = None
+    #     self.node.other_attributes = None
+    #     self.node.interfaces = None
+
+    #     output = []
+    #     output.append("Hostname: " + "None")
+    #     output.append("Function: " + "None")
+    #     output.append("OS: " + "None")
+    #     output.append("OS Version: " + "None")
+    #     output.append("Memory: " + "None")
+    #     output.append("Config: " + "None")
+    #     output.append("Libvirt Tunnel IP: " + "None")
+    #     output.append("Attributes: " + "None")
+    #     output.append("Interfaces: " + "None")
+
+    #     expected_result = "\n".join(output)
+    #     assert expected_result == str(self.node)

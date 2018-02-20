@@ -29,8 +29,8 @@ VERBOSE = False
 class Styles(object): # pylint: disable=R0903
     """Defines the terminal text colors for messages
     """
-    HEADER = '\033[95m'
-    BLUE = '\033[94m'
+    HEADER = ''
+    BLUE = ''
     GREEN = '\033[92m'
     WARNING = ''
     FAIL = ''
@@ -656,7 +656,8 @@ class Inventory(object):
 
     # R0912 - too many branches
     # R0915 - too many statements
-    def build_mgmt_network(self): # pylint: disable=R0912,R0915
+    # R0914 - too many local variables
+    def build_mgmt_network(self): # pylint: disable=R0912,R0915, R0914
         """Build a management network and add it to the inventory.
         This will create an oob-mgmt-switch and
         oob-mgmt-server NetworkNode if they do not exist and will
@@ -797,7 +798,6 @@ class Inventory(object):
                                      interface_name="swp" + str(mgmt_switch_port_count))))
                 management_ips.add(str(oob_server_ip.network[current_lease]) + oob_server_mask)
                 current_lease += 1
-
 
 
 # A class for this may not be the best thing,
@@ -1017,9 +1017,7 @@ class ParseGraphvizTopology(object):
 
         # Verify that they provided an OS for devices that aren't pxehost
         if vm_os is None and not pxehost:
-            print Styles.FAIL + Styles.BOLD + \
-                  " ### ERROR: OS not provided for " + hostname + Styles.ENDC
-            exit(1)
+            print_error("OS not provided for " + hostname)
 
         return NetworkNode(hostname=hostname, function=function, vm_os=vm_os, memory=memory,
                            config=config, os_version=os_version, other_attributes=other_attributes)
@@ -1121,17 +1119,11 @@ def check_files(cli_args, vagrant_template):
     if cli_args.template:
         custom_template = str(cli_args.template[0][0])
         if not os.path.isfile(custom_template):
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: provided template file-- \"" +
-                  custom_template + "\" does not exist!" +
-                  Styles.ENDC)
-            exit(1)
+            print_error("Provided template file-- \""\
+                        + custom_template + "\" does not exist!")
 
     if not os.path.isfile(vagrant_template):
-        print(Styles.FAIL + Styles.BOLD +
-              " ### ERROR: Default Vagrant Template \"" + vagrant_template + "\" does not exist!" +
-              Styles.ENDC)
-        exit(1)
+        print_error("Default Vagrant Template \"" + vagrant_template + "\" does not exist!")
 
     return True
 
@@ -1178,20 +1170,19 @@ def render_dhcpd_conf(inventory, topology_file, input_dir):
     jinja_variables = {"version": VERSION, "topology": topology_file}
 
     # we wouldn't be building this if the oob-mgmt-server doesn't exist
-    oob_server = inventory.get_node_by_name("oob-mgmt-server")
+    oob_server = inventory.oob_server
 
     # but check just in case
     if oob_server is None:
-        print(Styles.FAIL + Styles.BOLD +
-              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
-              + Styles.ENDC)
-        exit(1)
+        print_error("Something went wrong, no OOB Server exists. Failed to build dhcpd.conf")
 
     #ipaddress.network returns CIDR 192.168.1.0/24
     oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
     jinja_variables["dhcp_subnet"] = str(oob_ipaddress.network).split("/")[0]
     jinja_variables["dhcp_netmask"] = str(oob_ipaddress.netmask)
     jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+
+    # TODO: Make this dynamic
     jinja_variables["dhcp_start"] = "192.168.200.10"
     jinja_variables["dhcp_end"] = "192.168.200.138"
 
@@ -1214,10 +1205,7 @@ def render_dhcpd_hosts(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print(Styles.FAIL + Styles.BOLD +
-              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
-              + Styles.ENDC)
-        exit(1)
+        print_error("Something went wrong, no OOB Server exists. Failed to build dhcpd.hosts")
 
     oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
     jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
@@ -1234,6 +1222,7 @@ def render_dhcpd_hosts(inventory, topology_file, input_dir):
             continue
 
         if node.function == "oob-switch":
+            # Assign OOB IP to the oob-switch bridge interface
             mac_address = format_mac(node.other_attributes["bridge"]["mac"][2:])
             node_dict[node.hostname] = {
                 "mac": mac_address, "ip": node.other_attributes["bridge"]["ip"]}
@@ -1271,10 +1260,7 @@ def render_hosts_file(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print(Styles.FAIL + Styles.BOLD +
-              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
-              + Styles.ENDC)
-        exit(1)
+        print_error("Something went wrong, no OOB Server exists. Failed to build DNS hosts")
 
     oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
     jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
@@ -1319,10 +1305,8 @@ def render_oob_server_sh(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print(Styles.FAIL + Styles.BOLD +
-              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
-              + Styles.ENDC)
-        exit(1)
+        print_error("Something went wrong, no OOB Server exists. Failed to build"\
+                    + "OOB_Server_config_auto_mgmt.sh")
 
     oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
     jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
@@ -1352,9 +1336,7 @@ def render_ztp_oob(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print(Styles.FAIL + Styles.BOLD +
-              "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf"
-              + Styles.ENDC)
+        print_error("Something went wrong, no OOB Server exists. Failed to build ztp_oob.sh")
         exit(1)
 
     oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
@@ -1467,10 +1449,7 @@ def write_file(location, contents):
         with open(location, 'w') as output_file:
             output_file.write(contents)
     except:  #pylint: disable=W0702
-        print(Styles.FAIL + Styles.BOLD +
-              "ERROR: Could not write file " + location +
-              Styles.ENDC)
-        exit(1)
+        print_error("ERROR: Could not write file " + location)
 
 
 # def generate_management_devices(inventory, cli_args):
@@ -1505,8 +1484,7 @@ def write_file(location, contents):
 #     write_file(ansible_hosts_location, hostfile_contents)
 
 def print_warning(warning_string):
-    """
-    Format and print warning messages
+    """Format and print warning messages
     """
     warning_format = "\033[93m"
     bold_format = "\033[1m"
@@ -1515,8 +1493,7 @@ def print_warning(warning_string):
 
 
 def print_error(error_string):
-    """
-    Format and print error messages.
+    """Format and print error messages.
     Also exit the program
     """
     error_format = "\033[91m"
@@ -1525,20 +1502,37 @@ def print_error(error_string):
     print error_format + bold_format + " ### ERROR -- " + error_string + endc
     exit(1)
 
+def print_header(output_string):
+    """Format and print header messages
+    """
+    header_format = "\033[95m"
+
+    print header_format + output_string
+
+def print_blue(output_string):
+    """Print a string in blue
+    """
+    blue_format = "\033[94m"
+    print blue_format + output_string
 
 def main():
     """Main point of entry to parse a topology file,
     build an inventory and product a Vagrantfile
     """
+    # W0603 - use of global statement
+    global VERBOSE # pylint: disable=W0603
     vagrant_template = "templates/Vagrantfile.j2"
     cli = parse_arguments()
     cli_args = cli.parse_args()
     check_files(cli_args, vagrant_template)
 
-    print Styles.HEADER + "\n######################################"
-    print Styles.HEADER + "          Topology Converter"
-    print Styles.HEADER + "######################################"
-    print Styles.BLUE + "           originally written by Eric Pulvino"
+    if cli_args.verbose:
+        VERBOSE = True
+
+    print_header("\n######################################")
+    print_header("          Topology Converter")
+    print_header("######################################")
+    print_blue("           originally written by Eric Pulvino")
 
     parser = ParseGraphvizTopology()
     parsed_topology = parser.parse_topology(cli_args.topology_file)

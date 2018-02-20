@@ -19,7 +19,7 @@ class TestParseTopology(object):
         self.graphviz_topology = dot.graphviz.graph_from_dot_file("./tests/dot_files/simple.dot")  # pylint: disable=W0201
 
 
-    #@raises(Exception)
+    @raises(SystemExit)
     def test_linter_file_not_found(self):
         """Test errors when topology file does not exist
         """
@@ -58,7 +58,7 @@ class TestParseTopology(object):
         print "Failure on file: " + topology_file
         assert self.topology_object.lint_topology_file(topology_file)
 
-
+    @raises(SystemExit)
     def lint_bad_topos(self, topology_file):
         """Validate known bad topologies fail
         """

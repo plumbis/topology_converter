@@ -835,16 +835,11 @@ class ParseGraphvizTopology(object):
             # 1.) The file changed or was deleted between lint_topology_file() and graphviz call
             # 2.) lint topo file should be extended to handle missed failure.
             # as a result this isn't in coverage
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: Cannot parse the provided topology.dot \
-                  file (%s)\n     There is probably a syntax error \
-                  of some kind, common causes include failing to \
-                  close quotation marks and hidden characters from \
-                  copy/pasting device names into the topology file."
-                  % (topology_file) + Styles.ENDC)
-
-            exit(1)
-
+            print_error("Cannot parse the provided topology.dot file (%s)\n"\
+                        + "There is probably a syntax error of some kind "\
+                        + "common causes include failing to close quotation "\
+                        + "marks and hidden characters from copy/pasting device"\
+                        + "names into the topology file.")
         try:
             graphviz_nodes = graphviz_topology.get_node_list()
             graphviz_edges = graphviz_topology.get_edge_list()
@@ -854,13 +849,8 @@ class ParseGraphvizTopology(object):
             # if this is hit, it's either a corner, like file change
             # or we need to expand the linter
             print exception
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: There is a syntax error in your topology file \
-                  (%s). Read the error output above for any clues as to the source."
-                  % (self.topology_file) + Styles.ENDC)
-
-            exit(1)
-
+            print_error("There is a syntax error in your topology file."\
+                        + "Read the error output above for any clues as to the source.")
 
         for node in graphviz_nodes:
             self.nodes.append(self.create_node_from_graphviz(node))
@@ -895,47 +885,39 @@ class ParseGraphvizTopology(object):
                 for line in line_list:
                     count += 1
                     # Try to encode into ascii
-                    # TODO: understand if UTF-8 support is possible  # pylint: disable=W0511
-                    # seems supported by pydot
                     try:
                         line.encode('ascii', 'ignore')
 
                     except UnicodeDecodeError:
-                        print(Styles.FAIL + Styles.BOLD +
-                              " ### ERROR: Line %s:\n %s\n         --> \"%s\" \n     \
-                              Has hidden unicode characters in it which prevent it \
-                              from being converted to ASCII cleanly. Try manually \
-                              typing it instead of copying and pasting."
-                              % (count, line, re.sub(r'[^\x00-\x7F]+', '?', line)) + Styles.ENDC)
+                        print_error("Line " + str(count) + ":\n"\
+                                    + str(line) + "\n"\
+                                    + "Has hidden unicode characters in it which"\
+                                    + "prevent it from being converted to ASCII"\
+                                    + "Try manually typing it instead of copying and pasting.")
                         return False
 
                     if line.count("\"") % 2 == 1:
-                        print(Styles.FAIL + Styles.BOLD +
-                              " ### ERROR: Line %s: Has an odd \
-                              number of quotation characters \
-                              (\").\n     %s\n" % (count, line) + Styles.ENDC)
+                        print_error("Line " + str(count) + ": Has an odd"\
+                                    + "number of quotation characters \n"\
+                                    + str(line))
                         return False
 
                     if line.count("'") % 2 == 1:
-                        print(Styles.FAIL + Styles.BOLD +
-                              " ### ERROR: Line %s: Has an odd \
-                              number of quotation characters \
-                              (').\n     %s\n" % (count, line) + Styles.ENDC)
+                        print_error("Line " + str(count) + ": Has an odd"\
+                                    + "number of quotation characters \n"\
+                                    + str(line))
                         return False
 
                     if line.count(":") == 2:
                         if " -- " not in line:
-                            print(Styles.FAIL + Styles.BOLD +
-                                  " ### ERROR: Line %s: Does not \
-                                  contain the following sequence \" -- \" \
-                                  to seperate the different ends of the link.\n     %s\n"
-                                  % (count, line) + Styles.ENDC)
-
+                            print_error("Line " + str(count) + " does not"\
+                                        + "contain the required \" -- \" to"\
+                                        + "seperate a link")
                             return False
+
+        #W0703 - Exception too broad
         except Exception: # pylint: disable=W0703
-            print(Styles.FAIL + Styles.BOLD +
-                  "Problem opening file, " + topology_file + " perhaps it doesn't exist?" +
-                  Styles.ENDC)
+            print_error("Problem opening file, " + topology_file + " perhaps it doesn't exist?")
             return False
 
         return True

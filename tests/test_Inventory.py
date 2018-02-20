@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 """Test suite for the NetworkInterface topology converter object
 """
-# pylint: disable=C0103, W0201
+# C0103 - Does not conform to snake_case naming
+# C0302 - Too many lines in module
+# W0201 - Attribute defined outside __init__
+# pylint: disable=W0201, C0302, C0103
 
 from nose.tools import raises
 import topology_converter as tc
@@ -904,3 +907,80 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         for hostname, node_object in self.inventory.node_collection.iteritems():
             if hostname != "oob-mgmt-server" and hostname != "oob-mgmt-switch":
                 assert node_object.interfaces["eth0"].ip != "192.168.200.13"
+
+    def test_calculate_memory(self):
+        """Test calculating the total memory of an Inventory
+        """
+        self.inventory.add_node(tc.NetworkNode(hostname="leaf01", function="leaf",
+                                               vm_os="CumulusCommunity/cumulus-vx",
+                                               memory="768",
+                                               config="./helper_scripts/oob_switch_config.sh"))
+
+        self.inventory.add_node(tc.NetworkNode(hostname="leaf02", function="leaf",
+                                               vm_os="CumulusCommunity/cumulus-vx",
+                                               memory="768",
+                                               config="./helper_scripts/oob_switch_config.sh"))
+
+
+        assert self.inventory.calculate_memory() == 1536
+
+    def test_get_none_node_by_name(self):
+        """Test requesting a node by name that does not exist
+        """
+
+        self.inventory.add_node(tc.NetworkNode(hostname="leaf01", function="leaf",
+                                               vm_os="CumulusCommunity/cumulus-vx",
+                                               memory="768",
+                                               config="./helper_scripts/oob_switch_config.sh"))
+
+        assert self.inventory.get_node_by_name("rocketturtle") is None
+
+    @raises(SystemExit)
+    def test_static_ip_collision(self):
+        """Test building an oob network when there are duplicate static management IPs
+        """
+
+        self.inventory.add_node(tc.NetworkNode(hostname="leaf01", function="leaf",
+                                               vm_os="CumulusCommunity/cumulus-vx",
+                                               memory="768",
+                                               config="./helper_scripts/oob_switch_config.sh",
+                                               other_attributes={"mgmt_ip": "192.168.200.1/24"}))
+
+        self.inventory.add_node(tc.NetworkNode(hostname="leaf02", function="leaf",
+                                               vm_os="CumulusCommunity/cumulus-vx",
+                                               memory="768",
+                                               config="./helper_scripts/oob_switch_config.sh",
+                                               other_attributes={"mgmt_ip": "192.168.200.1/24"}))
+
+        self.inventory.build_mgmt_network()
+
+    @raises(SystemExit)
+    def test_mgmt_server_mask_too_small(self):
+        """Test creating a management network with a OOB server subnet mask that is less than /28
+        """
+        self.inventory.add_node(tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                               vm_os="CumulusCommunity/cumulus-vx",
+                                               memory="768",
+                                               config="./helper_scripts/oob_switch_config.sh",
+                                               other_attributes={"mgmt_ip": "192.168.200.1/31"}))
+
+        self.inventory.build_mgmt_network()
+
+    def test_dhcp_pool_too_small_with_ip_conflict(self):
+        """Test that a static IP conflict that exceeds the pool exits
+        """
+        self.inventory.add_node(tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                               vm_os="CumulusCommunity/cumulus-vx",
+                                               memory="768",
+                                               config="./helper_scripts/oob_switch_config.sh",
+                                               other_attributes={"mgmt_ip": "192.168.200.4/28"}))
+
+        x = 1
+        while x < 2:
+            self.inventory.add_node(tc.NetworkNode(hostname="leaf0" + str(x), function="leaf",
+                                                   vm_os="CumulusCommunity/cumulus-vx",
+                                                   memory="768",
+                                                   config="./helper_scripts/oob_switch_config.sh"))
+            x += 1
+
+        self.inventory.build_mgmt_network()

@@ -116,36 +116,38 @@ class NetworkNode(object):
         self.legacy = False
         self.vagrant_interface = "vagrant"
 
-        if VERBOSE:
+        if VERBOSE: # pragma: no cover
             print "Building NetworkNode " + self.hostname + ". Function set as " + self.function
 
         if other_attributes is None:
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "No other attributes found"
             self.other_attributes = dict()
         else:
             self.other_attributes = other_attributes
 
+        self.mgmt_ip = self.get_node_mgmt_ip()
+
         if "pxehost" in self.other_attributes:
             self.pxehost = self.other_attributes["pxehost"] == "True"
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Pxehost set for " + self.hostname \
                 + ". Default OS assignment will be skipped"
 
         if self.function in defaults:
             if vm_os is None and not self.pxehost:
                 vm_os = defaults[function]["os"]
-                if VERBOSE:
+                if VERBOSE: # pragma: no cover
                     print "OS not found, using default of : " + vm_os
 
             if memory is None:
                 memory = defaults[function]["memory"]
-                if VERBOSE:
+                if VERBOSE: # pragma: no cover
                     print "No memory defined, using default of " + memory
 
             if config is None and function != "fake":
                 config = defaults[function]["config"]
-                if VERBOSE:
+                if VERBOSE: # pragma: no cover
                     print "No config defined, using default of " + config
                 if not os.path.isfile(config):
                     print_warning("Node \"" + hostname +
@@ -160,12 +162,12 @@ class NetworkNode(object):
 
         if "playbook" in self.other_attributes:
             self.playbook = self.other_attributes["playbook"]
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Found playbook " + self.playbook
 
         if "remap" in self.other_attributes:
             self.remap = self.other_attributes["remap"] == "True"
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Remap found and set to " + str(self.remap)
 
         if "ports" in self.other_attributes:
@@ -176,7 +178,7 @@ class NetworkNode(object):
                 print_error("Ports value is invalid for " + self.hostname)
 
             self.ports = self.other_attributes["ports"]
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Ports " + self.ports + " defined on " + self.hostname
 
         if "ssh_port" in self.other_attributes:
@@ -188,22 +190,22 @@ class NetworkNode(object):
                 print_error("SSH port value is invalid for " + self.hostname)
 
             self.ssh_port = self.other_attributes["ssh_port"]
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "SSH port " + self.ssh_port + " defined on " + self.hostname
 
         if "vagrant" in self.other_attributes:
             self.vagrant_interface = self.other_attributes["vagrant"]
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Vagrant interface " + self.vagrant_interface + " defined on " + self.hostname
 
         if "vagrant_user" in self.other_attributes:
             self.vagrant_user = self.other_attributes["vagrant_user"]
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Vagrant user " + self.vagrant_user + " defined on " + self.hostname
 
         if "legacy" in self.other_attributes:
             self.legacy = self.other_attributes["legacy"] == "True"
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Legacy flag set to " + self.legacy + " on " + self.hostname
 
         self.vm_os = vm_os
@@ -214,6 +216,29 @@ class NetworkNode(object):
         self.os_version = os_version
         self.has_pxe_interface = False
 
+    def get_node_mgmt_ip(self):
+        """Determine the management IP and return it as an IPInterface object.
+        """
+
+        if "mgmt_ip" in self.other_attributes:
+            try:
+                # Check if there is a mask on the mgmt_ip attribute
+                # or assume /24
+                if self.other_attributes["mgmt_ip"].find("/") < 0:
+                    if VERBOSE:  # pragma: no cover
+                        print "Management IP " + self.other_attributes["mgmt_ip"]\
+                                + " found on " + self.hostname + " without mask. Assuming /24"
+                    return ipaddress.ip_interface(unicode(self.other_attributes["mgmt_ip"] + "/24"))
+                else:
+                    if VERBOSE:  # pragma: no cover
+                        print "Management IP " + self.other_attributes["mgmt_ip"]\
+                                + " found on " + self.hostname
+                    return ipaddress.ip_interface(unicode(self.other_attributes["mgmt_ip"]))
+
+            except Exception:  # pylint: disable=W0703
+                print_error("Management IP address on " + self.hostname + " is invalid")
+
+        return None
 
     @staticmethod
     def check_hostname(hostname):
@@ -292,6 +317,7 @@ class NetworkNode(object):
         self.interfaces[network_interface.interface_name] = network_interface
 
         return self
+
 
 
 class NetworkInterface(object):
@@ -435,13 +461,20 @@ class Inventory(object):
         self.current_mac = "0x443839000000"
         self.oob_server = None
         self.oob_switch = None
+        self.mgmt_ips = set() # This is the set of management IPs in the network
+        # this is used to prevent duplicates.
+        # all of the elements should be of type ipaddress.ip_interface
+        # ip_interface objects are in CIDR notation (10.1.1.1/24)
+        # By default if no mask is provided it will create a /32, which isn't what we want.
+
 
     def calculate_memory(self):
         """Look at all nodes in the Inventory
         and return the total memory they will consume
         """
         total_memory = 0
-        for node in self.node_collection:
+
+        for node in self.node_collection.itervalues():
             total_memory += int(node.memory)
 
         return total_memory
@@ -469,12 +502,12 @@ class Inventory(object):
         # Identify the oob switch and server if they exist.
         if node.function == "oob-server":
             self.oob_server = node
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Found OOB Server " + node.hostname
 
         elif node.function == "oob-switch":
             self.oob_switch = node
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "Found OOB Switch " + node.nosthame
 
         # Don't allow something to be called "oob-mgmt-server"
@@ -488,9 +521,15 @@ class Inventory(object):
         if node.hostname == "oob-mgmt-switch" and self.oob_switch is None:
             print_error("The node named oob-mgmt-switch must be set to function = \"oob-switch\"")
 
+        if node.mgmt_ip is not None and node.mgmt_ip in self.mgmt_ips:
+            print_error("Management IP address on " + node.hostname
+                        + " is already in use. Likely it matches another static IP")
+        else:
+            self.mgmt_ips.add(node.mgmt_ip)
+
         self.node_collection[node.hostname] = node
 
-        if VERBOSE:
+        if VERBOSE: # pragma: no cover
             print "Added " + node.hostname + " to inventory"
 
         return self
@@ -529,7 +568,7 @@ class Inventory(object):
                 # Get a MAC address for the interface, if it doesn't already have one
                 if side.mac is None:
                     side.mac = self.get_mac()
-                    if VERBOSE:
+                    if VERBOSE: # pragma: no cover
                         print "Interface " + side.interface_name + " on " + side.hostname\
                               + " assigned MAC " + side.mac
 
@@ -537,7 +576,7 @@ class Inventory(object):
         if self.provider == "virtualbox":
             network_edge.left_side.network = "network" + str(self.provider_offset)
             network_edge.right_side.network = "network" + str(self.provider_offset)
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print network_edge.left_side.hostname + ":"\
                       + network_edge.left_side.interface_name + " -- "\
                       + network_edge.right_side.hostname + ":"\
@@ -559,7 +598,7 @@ class Inventory(object):
             network_edge.left_side.remote_port = str(self.current_libvirt_port + self.libvirt_gap)
             network_edge.right_side.local_port = str(self.current_libvirt_port + self.libvirt_gap)
 
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print network_edge.left_side.hostname + ":" + network_edge.left_side.interface_name\
                       + " local port: " + network_edge.left_side.local_port\
                       + " remote port: " + network_edge.left_side.remote_port
@@ -613,46 +652,6 @@ class Inventory(object):
 
         return self
 
-    @staticmethod
-    def get_oob_ip(oob_device):
-        """Determine the correct IP for the oob server or oob switch.
-        Either the user provided IP or 192.168.200.254/24 for oob-server
-        and 192.168.200.1/24 for oob-switch
-        """
-        if "mgmt_ip" in oob_device.other_attributes:
-            try:
-                # If the netmask isn't provided, assume /24
-                if oob_device.other_attributes["mgmt_ip"].find("/") < 0:
-                    if VERBOSE:
-                        print "OOB server IP found without a mask, assuming /24"
-                    return ipaddress.ip_interface(
-                        unicode(oob_device.other_attributes["mgmt_ip"] + "/24"))
-
-                # If they set the management IP manually
-                # on the existing server, use that one
-                if VERBOSE:
-                    print "OOB server IP found: " + oob_device.other_attributes["mgmt_ip"]
-                return ipaddress.ip_interface(unicode(oob_device.other_attributes["mgmt_ip"]))
-
-            # W0703, too general of exception.
-            # This catches any random errors due to parsing IP input
-            except Exception: # pylint: disable=W0703
-                print_error("Configured management IP is invalid on " + oob_device.hostname)
-
-        if oob_device.function == "oob-server":
-            if VERBOSE:
-                print "No management IP defined, assigning 192.168.200.254/24 to OOB Server"
-            return ipaddress.ip_interface(u'192.168.200.254/24')
-
-        if oob_device.function == "oob-switch":
-            if VERBOSE:
-                print "No management IP defined, assigning 192.168.200.1/24 to OOB Switch"
-            return ipaddress.ip_interface(u'192.168.200.1/24')
-
-        # If we reach here something went wrong
-        print_error("Internal error trying to determine management device IP")
-
-        return None
 
     # R0912 - too many branches
     # R0915 - too many statements
@@ -665,25 +664,32 @@ class Inventory(object):
         the oob-mgmt-server
         """
 
+    # TODO: This is broken. Currently if oob server is .1 the oob-switch will be in conflict
+    # Likely need to make a function to find the next IP
+    # and keep the pool info globally.
+
         mgmt_switch_port_count = 1
-        management_ips = set()  # track the management IPs to prevent static-dhcp collisions
 
         # Create an oob-server if the user didn't define one
         if self.oob_server is None:
-            oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server")
+            # If the OOB server isn't created we need a management IP to
+            # base the rest of the network off of.
+            # So enforce that the OOB server is 192.168.200.254/24
+            # If the user wants something else or a larger subnet,
+            # then they need to manually create the
+            # OOB server and set the mgmt IP and we can do the rest
+            oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                     other_attributes={"mgmt_ip": "192.168.200.254/24"})
             self.add_node(oob_server)
-            if VERBOSE:
+            if VERBOSE: # pragma: no cover
                 print "No oob-server found, one has been created"
+        else:
+            oob_server = self.oob_server
+            if self.oob_server.mgmt_ip is None:
+                self.oob_server.mgmt_ip = ipaddress.ip_interface(u'192.168.200.254/24')
+                self.mgmt_ips.add(self.oob_server.mgmt_ip)
 
-        # Create an oob-switch if the user didn't define one
-        if self.oob_switch is None:
-            oob_switch = NetworkNode(hostname="oob-mgmt-switch", function="oob-switch")
-            self.add_node(oob_switch)
-            if VERBOSE:
-                print "No oob-switch found, one has been created"
 
-        oob_server_ip = self.get_oob_ip(self.oob_server)
-        oob_server_mask = str(oob_server_ip)[str(oob_server_ip).find("/"):]
         # Define the DHCP Pool settings based on the OOB IP
         # If the default IP is used, the pool will start at 192.168.200.10
         # And be of size 244. This is 256 in a /24, -2 for the network/broadcast
@@ -691,24 +697,21 @@ class Inventory(object):
         #
         # Otherwise, let's dynamically size based on the provided OOB IP
         # This allows for much larger dynamic pools if required
-        dhcp_pool_start = 10
-        dhcp_pool_size = (oob_server_ip.network.num_addresses - 2) - 10
-        current_lease = 10
+        dhcp_pool_size = (self.oob_server.mgmt_ip.network.num_addresses - 2)
+        current_lease = 1
 
-        # Connect the oob server and switch
-        mgmt_port = "swp" + str(mgmt_switch_port_count)
-        self.add_edge(NetworkEdge(NetworkInterface(hostname=self.oob_server.hostname,
-                                                   interface_name="eth1",
-                                                   ip=str(oob_server_ip)),
-                                  NetworkInterface(hostname=self.oob_switch.hostname,
-                                                   interface_name=mgmt_port)))
+        if dhcp_pool_size <= 3:
+            # /29 gives 6 usable hosts, allowing for oob server, switch and hosts
+            print_error("OOB Server subnet is too small for a valid DHCP pool."\
+                        + " Minimum subnet mask is /29")
 
-        if VERBOSE:
-            print "Management Link Added: "
-            print self.oob_server.hostname + ":eth1 -- " + self.oob_switch.hostname + mgmt_port
-            print ""
 
-        management_ips.add(str(oob_server_ip))
+        # Create an oob-switch if the user didn't define one
+        if self.oob_switch is None:
+            self.add_node(NetworkNode(hostname="oob-mgmt-switch", function="oob-switch"))
+
+            if VERBOSE: # pragma: no cover
+                print "No oob-switch found, one has been created"
 
         # The management switch is a bit special
         # it's the only device with a logical management interface
@@ -716,12 +719,52 @@ class Inventory(object):
         # because we can't create an edge since it's not connected to anything.
 
         switch_mac = self.get_mac()
-        switch_ip = self.get_oob_ip(self.oob_switch)
-        self.oob_switch.other_attributes["bridge"] = {"mac": switch_mac, "ip": switch_ip}
-        if VERBOSE:
-            print "OOB-Switch bridge created with MAC " + switch_mac + " and IP " + switch_ip
 
-        # Look at all the hosts in the inventory and connect eth0 to the management switch
+        if self.oob_switch.mgmt_ip is None:
+
+            # Everything is stored as ipaddress.IPInterface (in CIDR)
+            # the .network[current_lease] returns an IPAddress without a mask
+            oob_server_mask = "/" + \
+                str(self.oob_server.mgmt_ip)[str(self.oob_server.mgmt_ip).find("/") + 1 :]
+            candidate_lease = str(
+                self.oob_server.mgmt_ip.network[current_lease])
+            candidate_ip_object = ipaddress.ip_interface(unicode(candidate_lease + oob_server_mask))
+
+            # Check if this IP is taken, if so, keep trying until we find the next free IP
+            while candidate_ip_object in self.mgmt_ips:
+
+                current_lease += 1
+                candidate_lease = str(self.oob_server.mgmt_ip.network[current_lease])
+                candidate_ip_object = ipaddress.ip_interface(
+                    unicode(candidate_lease + oob_server_mask))
+
+            oob_switch_ip = candidate_ip_object
+
+            self.oob_switch.mgmt_ip = oob_switch_ip
+            self.mgmt_ips.add(oob_switch_ip)
+
+            if VERBOSE:  # pragma: no cover
+                print "OOB-Switch dynamically assigned IP " + self.oob_switch.mgmt_ip
+
+        self.oob_switch.other_attributes["bridge"] = {"mac": switch_mac,
+                                                      "ip": self.oob_switch.mgmt_ip}
+        if VERBOSE:  # pragma: no cover
+            print  "OOB-Switch bridge created with MAC " + switch_mac + " and IP "\
+                  + self.oob_switch.mgmt_ip
+
+        # Connect the oob server and switch
+        mgmt_port = "swp" + str(mgmt_switch_port_count)
+        self.add_edge(NetworkEdge(NetworkInterface(hostname=self.oob_server.hostname,
+                                                   interface_name="eth1",
+                                                   ip=str(self.oob_server.mgmt_ip)),
+                                  NetworkInterface(hostname=self.oob_switch.hostname,
+                                                   interface_name=mgmt_port)))
+
+        if VERBOSE: # pragma: no cover
+            print "Management Link Added: "
+            print self.oob_server.hostname + ":eth1 -- " + self.oob_switch.hostname + mgmt_port
+            print ""
+
         for hostname, node_object in self.node_collection.iteritems():
             if hostname == "oob-mgmt-server" or hostname == "oob-mgmt-switch":
                 continue
@@ -729,60 +772,31 @@ class Inventory(object):
             # Increment the oob switch port count
             mgmt_switch_port_count += 1
 
-            # Create the oob-switch links and assign IPs to the hosts.
-            if "mgmt_ip" in node_object.other_attributes:
-                try:
-                    # Check if there is a mask on the mgmt_ip attribute
-                    # or assume /24
-                    if node_object.other_attributes["mgmt_ip"].find("/") < 0:
-                        if VERBOSE:
-                            print "Management IP " + node_object.other_attributes["mgmt_ip"]\
-                                  + "found on " + hostname + " without mask. Assuming /24"
-                        node_ip = ipaddress.ip_interface(
-                            unicode(node_object.other_attributes["mgmt_ip"] + "/24"))
-                    else:
-                        if VERBOSE:
-                            print "Management IP " + node_object.other_attributes["mgmt_ip"]\
-                                  + "found on " + hostname
-                        node_ip = ipaddress.ip_interface(
-                            unicode(node_object.other_attributes["mgmt_ip"]))
-
-                except Exception: # pylint: disable=W0703
-                    print_error("Management IP address on " + node_object.hostname + " is invalid")
-
-                # Prevent an IP collision between the oob-server and the node
-                # the node_ip is a CIDR IP/Mask, while everything else has been
-                # just an IP, so pull out just the IP and cast to string to compare
-                if str(node_ip.ip) in management_ips:
-                    print_error("Management IP address on " + node_object.hostname
-                                + " is already in use. Likely it matches another static IP")
-
+            if node_object.mgmt_ip is not None:
                 # Verify node_ip in subnet of oob-server ip
-                if not oob_server_ip.network == node_ip.network:
+                if not self.oob_server.mgmt_ip.network == node_object.mgmt_ip.network:
                     print_error("Management IP address on " + node_object.hostname
                                 + " is not in the same subnet as the OOB server."
-                                + " OOB Server is configured for " + str(oob_server_ip) + ". "
-                                + node_object.hostname + " is configured for " + str(node_ip))
+                                + " OOB Server is configured for "
+                                + str(self.oob_server.mgmt_ip) + ". "
+                                + node_object.hostname + " is configured for "
+                                + str(node_object.mgmt_ip))
 
                 mgmt_port = "swp" + str(mgmt_switch_port_count)
                 self.add_edge(NetworkEdge(
                     NetworkInterface(hostname=hostname, interface_name="eth0",
-                                     ip=str(node_ip)),
+                                     ip=str(node_object.mgmt_ip)),
                     NetworkInterface(hostname="oob-mgmt-switch",
                                      interface_name=mgmt_port)))
-                management_ips.add(str(node_ip))
 
             else:
 
-                if current_lease > dhcp_pool_size:
-                    print_error("Number of devices in management "
-                                + "network (" + str(len(self.node_collection))
-                                + " including oob-server and oob-switch) exceeds"
-                                + " DCHP pool size (" + str(dhcp_pool_size - dhcp_pool_start) + ")")
-
+                candidate_lease = str(self.oob_server.mgmt_ip.network[current_lease])
+                candidate_ip_object = ipaddress.ip_interface(
+                    unicode(candidate_lease + oob_server_mask))
 
                 # Check if this IP is taken, if so, keep trying until we find the next free IP
-                while str(oob_server_ip.network[current_lease]) + oob_server_mask in management_ips:
+                while candidate_ip_object in self.mgmt_ips:
                     # If picking the next IP exceeds the pool, exit.
                     if current_lease + 1 > dhcp_pool_size:
                         print_error("Number of devices in management "
@@ -790,13 +804,17 @@ class Inventory(object):
                                     + str(dhcp_pool_size) + ")")
 
                     current_lease += 1
+                    candidate_lease = str(self.oob_server.mgmt_ip.network[current_lease])
+                    candidate_ip_object = ipaddress.ip_interface(
+                        unicode(candidate_lease + oob_server_mask))
 
                 self.add_edge(NetworkEdge(
                     NetworkInterface(hostname=hostname, interface_name="eth0",
-                                     ip=str(oob_server_ip.network[current_lease])),
+                                     ip=str(candidate_ip_object)),
                     NetworkInterface(hostname="oob-mgmt-switch",
                                      interface_name="swp" + str(mgmt_switch_port_count))))
-                management_ips.add(str(oob_server_ip.network[current_lease]) + oob_server_mask)
+                node_object.mgmt_ip = candidate_ip_object
+                self.mgmt_ips.add(candidate_ip_object)
                 current_lease += 1
 
 
@@ -892,19 +910,19 @@ class ParseGraphvizTopology(object):
                         print_error("Line " + str(count) + ":\n"\
                                     + str(line) + "\n"\
                                     + "Has hidden unicode characters in it which"\
-                                    + "prevent it from being converted to ASCII"\
-                                    + "Try manually typing it instead of copying and pasting.")
+                                    + " prevent it from being converted to ASCII"\
+                                    + " Try manually typing it instead of copying and pasting.")
                         return False
 
                     if line.count("\"") % 2 == 1:
                         print_error("Line " + str(count) + ": Has an odd"\
-                                    + "number of quotation characters \n"\
+                                    + " number of quotation characters \n"\
                                     + str(line))
                         return False
 
                     if line.count("'") % 2 == 1:
                         print_error("Line " + str(count) + ": Has an odd"\
-                                    + "number of quotation characters \n"\
+                                    + " number of quotation characters \n"\
                                     + str(line))
                         return False
 
@@ -912,7 +930,7 @@ class ParseGraphvizTopology(object):
                         if " -- " not in line:
                             print_error("Line " + str(count) + " does not"\
                                         + "contain the required \" -- \" to"\
-                                        + "seperate a link")
+                                        + " seperate a link")
                             return False
 
         #W0703 - Exception too broad

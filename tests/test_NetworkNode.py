@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """Test suite for topology_converter.NetworkNode class
 """
-# pylint: disable=C0103
+# C0103 name doesn't confirm to snake case naming style
+# R0201 method could be a function
+# pylint: disable=C0103,R0201
 from nose.tools import raises
 import topology_converter as tc
 
@@ -249,7 +251,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
     def test_zero_ports(self):
         """Test that setting ports to zero causes exit
         """
-        node = tc.NetworkNode(
+        tc.NetworkNode(
             hostname="leaf01",
             function="leaf",
             memory="768",
@@ -261,7 +263,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
     def test_non_number_ports(self):
         """Test that setting ports to non-int causes exit
         """
-        node = tc.NetworkNode(
+        tc.NetworkNode(
             hostname="leaf01",
             function="leaf",
             memory="768",
@@ -273,7 +275,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
     def test_zero_ssh_port(self):
         """Test that setting ssh_port to zero causes exit
         """
-        node = tc.NetworkNode(
+        tc.NetworkNode(
             hostname="leaf01",
             function="leaf",
             memory="768",
@@ -285,7 +287,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
     def test_less_than_1024_ssh_port(self):
         """Test that setting ssh_port to <1024 causes exit
         """
-        node = tc.NetworkNode(
+        tc.NetworkNode(
             hostname="leaf01",
             function="leaf",
             memory="768",
@@ -297,59 +299,10 @@ class Test_NetworkNode(object): # pylint: disable=R0904
     def test_non_number_ssh_port(self):
         """Test that setting ssh_port to non-int causes exit
         """
-        node = tc.NetworkNode(
+        tc.NetworkNode(
             hostname="leaf01",
             function="leaf",
             memory="768",
             other_attributes={
                 "ssh_port":"rocketturtle",
             })
-    # def test_str_all_values(self):
-    #     """Test that print output is as expected with all values set
-    #     """
-    #     interface = tc.NetworkInterface(hostname="leaf01",
-    #                                     interface_name="swp51",
-    #                                     mac=None, ip=None)
-
-    #     self.node.os_version = "3.4.3"
-    #     self.node.other_attributes = {"superspine": "True"}
-    #     self.node.add_interface(interface)
-    #     output = []
-    #     output.append("Hostname: " + "leaf01")
-    #     output.append("Function: " + "leaf")
-    #     output.append("OS: " + "CumulusCommunity/cumulus-vx")
-    #     output.append("OS Version: " + "3.4.3")
-    #     output.append("Memory: " + "768")
-    #     output.append("Config: " + "./helper_scripts/oob_switch_config.sh")
-    #     output.append("Libvirt Tunnel IP: " + "127.0.0.1")
-    #     output.append("Attributes: " + str({"superspine": "True"}))
-    #     output.append("Interfaces: " + str({"swp51": interface}))
-    #     expected_result = "\n".join(output)
-    #     assert expected_result == str(self.node)
-
-    # def test_str_no_values(self):
-    #     """Test that string output is correct with no values set
-    #     """
-    #     self.node.hostname = None
-    #     self.node.function = None
-    #     self.node.vm_os = None
-    #     self.node.os_version = None
-    #     self.node.memory = None
-    #     self.node.config = None
-    #     self.node.tunnel_ip = None
-    #     self.node.other_attributes = None
-    #     self.node.interfaces = None
-
-    #     output = []
-    #     output.append("Hostname: " + "None")
-    #     output.append("Function: " + "None")
-    #     output.append("OS: " + "None")
-    #     output.append("OS Version: " + "None")
-    #     output.append("Memory: " + "None")
-    #     output.append("Config: " + "None")
-    #     output.append("Libvirt Tunnel IP: " + "None")
-    #     output.append("Attributes: " + "None")
-    #     output.append("Interfaces: " + "None")
-
-    #     expected_result = "\n".join(output)
-    #     assert expected_result == str(self.node)

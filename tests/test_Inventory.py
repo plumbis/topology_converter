@@ -853,7 +853,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         self.inventory.add_parsed_topology(parser)
 
         x = 1
-        while x < 200:
+        while x < 255:
             self.inventory.add_node(tc.NetworkNode(hostname=str("node" + str(x)), function="leaf",
                                                    vm_os="CumulusCommunity/cumulus-vx",
                                                    memory="768",
@@ -862,24 +862,6 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
 
         self.inventory.build_mgmt_network()
 
-
-    @raises(SystemExit)
-    def test_mgmt_ip_collision(self):
-        """Test that a static IP that collides with the DHCP pool exits
-        """
-
-        parser = tc.ParseGraphvizTopology()
-        parser.parse_topology("./tests/dot_files/simple.dot")
-        self.inventory.provider = "libvirt"
-        self.inventory.add_parsed_topology(parser)
-
-        test_node = tc.NetworkNode(hostname="leaf99", function="leaf",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
-                                   other_attributes={"mgmt_ip": "192.168.200.11/24"})
-
-        self.inventory.add_node(test_node)
-        self.inventory.build_mgmt_network()
 
     @raises(SystemExit)
     def test_static_ip_not_in_mgmt_subnet(self):
@@ -897,36 +879,6 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
                                    other_attributes={"mgmt_ip": "10.1.1.1/24"})
 
         self.inventory.add_node(test_node)
-        self.inventory.build_mgmt_network()
-
-
-    @raises(SystemExit)
-    def test_pool_exceeded_on_end_oob_ip(self):
-        """If the oob server has an IP in the end of the pool and it
-        causes the pool size to be exceeded, program should exit.
-        """
-
-        parser = tc.ParseGraphvizTopology()
-        parser.parse_topology("./tests/dot_files/simple.dot")
-        self.inventory.provider = "libvirt"
-        self.inventory.add_parsed_topology(parser)
-
-        test_node = tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
-                                   vm_os="CumulusCommunity/cumulus-vx",
-                                   memory="768", config="./helper_scripts/oob_switch_config.sh",
-                                   other_attributes={"mgmt_ip": "192.168.200.128/24"})
-
-        self.inventory.add_node(test_node)
-
-        x = 1
-        while x < 115:
-            self.inventory.add_node(tc.NetworkNode(hostname=str("node" + str(x)), function="leaf",
-                                                   vm_os="CumulusCommunity/cumulus-vx",
-                                                   memory="768",
-                                                   config="./helper_scripts/oob_switch_config.sh"))
-            x += 1
-
-
         self.inventory.build_mgmt_network()
 
 

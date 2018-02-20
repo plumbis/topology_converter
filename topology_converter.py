@@ -293,46 +293,6 @@ class NetworkNode(object):
 
         return self
 
-    # This may be removed later
-    # Unclear what the need for a string method is at this point
-    #
-    # def __str__(self):
-    #     """String representation of a NetworkNode
-    #     Print it out in graphvis notation.
-    #     """
-    #     # Notice that there are no spaces between optional attributes.
-    #     # When the attribute is generated append the space there.
-    #     # this is to prevent something like "function=spine            ssh_port=22"
-
-    #     vm_os = "\"" + self.vm_os + "\" " if self.vm_os else ""
-    #     os_version = "\"" + self.os_version + "\" " if self.os_version else ""
-    #     memory = "\"" + self.memory + "\" " if self.memory else ""
-    #     config = "\"" + self.config + "\" " if self.config else ""
-    #     playbook = "\"" + self.playbook + "\" " if self.playbook else ""
-    #     tunnel_ip = "\"" + self.tunnel_ip + "\" " if self.tunnel_ip else ""
-    #     pxehost = "\"" + str(self.pxehost) + "\" " if self.pxehost else ""
-    #     remap = "\"" + str(self.remap) + "\" " if self.remap else ""
-    #     ports = "\"" + self.ports + "\" " if self.ports else ""
-    #     ssh_port = "\"" + self.ssh_port + "\" " if self.ssh_port else ""
-    #     vagrant_interface = "\"" + self.vagrant_interface + "\" " if self.vagrant_interface else ""
-    #     vagrant_user = "\"" + self.vagrant_user + "\" " if self.vagrant_user else ""
-    #     legacy = "\"" + self.legacy + "\" " if self.legacy else ""
-
-    #     output = "\"{hostname}\" [function=\"{function}\" os=\"{vm_os}\"{os_version}\
-    #     {memory}{config}{playbook}{tunnel_ip}{pxehost}{remap}{ports}{ssh_port}\
-    #     {vagrant_interface}{vagrant_user}{legacy}]".format(hostname=self.hostname,
-    #                                                        function=self.function, vm_os=vm_os,
-    #                                                        os_version=os_version,
-    #                                                        memory=memory, config=config,
-    #                                                        playbook=playbook,
-    #                                                        tunnel_ip=tunnel_ip, pxehost=pxehost,
-    #                                                        remap=remap,
-    #                                                        ports=ports, ssh_port=ssh_port,
-    #                                                        vagrant_interface=vagrant_interface,
-    #                                                        vagrant_user=vagrant_user, legacy=legacy)
-
-    #     return output
-
 
 class NetworkInterface(object):
     """A NetworkInterface is a single interface that can be attached
@@ -346,6 +306,7 @@ class NetworkInterface(object):
 
     Note, that NetworkInterface is for a physical interface that
     would be part of the virtual topology within the environment.
+    This means a bridge or loopback can not be a NetworkInterface object.
 
     Attributes:
     hostname - the hostname that this interface is attached to
@@ -378,11 +339,9 @@ class NetworkInterface(object):
         """
         if "/" in interface_name:
             new_interface = interface_name.replace('/', '-')
-            print(Styles.WARNING + Styles.BOLD +
-                  "    WARNING: Device " + str(self.hostname) + " interface"
-                  " " + str(interface_name) + " contains a slash"
-                  " and will be convereted to " + str(new_interface),
-                  Styles.ENDC)
+            print_warning("Device " + str(self.hostname) + " interface"
+                          " " + str(interface_name) + " contains a slash"
+                          " and will be convereted to " + str(new_interface))
 
             return new_interface
 
@@ -408,65 +367,38 @@ class NetworkInterface(object):
         mac = mac.strip().lower()
 
         if len(mac) > 12:
-            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is too long" + Styles.ENDC)
-            exit(1)
+            print_error(self.hostname + " MAC " + mac + " is too long")
 
         if len(mac) < 12:
-            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is too short" + Styles.ENDC)
-            exit(1)
+            print_error(self.hostname + " MAC " + mac + " is too short")
 
         try:
             int(mac, 16)
 
         except Exception: # pylint: disable=W0703
-            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " could not be converted to hex. " +
-                  "Perhaps there are bad characters?" + Styles.ENDC)
-            exit(1)
+            print_error(self.hostname + " MAC " + mac + " could not be converted to hex. "\
+             + "Perhaps there are bad characters?")
 
         # Broadcast
         if mac == "ffffffffffff":
-            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is a broadcast address" + Styles.ENDC)
-            exit(1)
+            print_error(self.hostname + " MAC " + mac + " is a broadcast address")
 
         # Invalid
         if mac == "000000000000":
-            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is an invalid all zero MAC" + Styles.ENDC)
-            exit(1)
+            print_error(self.hostname + " MAC " + mac + " is an invalid all zero MAC")
 
         # Multicast
         if mac[:6] == "01005e":
-            print(Styles.FAIL + Styles.BOLD + " ### ERROR: " + self.hostname + " MAC "
-                  + mac + " is a multicast MAC" + Styles.ENDC)
-            exit(1)
+            print_error(self.hostname + " MAC " + mac + " is a multicast MAC")
 
         return mac
 
 
-    def __str__(self):
-        """Print out the contents of the interface object
-        """
-        output = []
-        output.append("Hostname: " + (self.hostname or "None"))
-        output.append("interface_name: " + (self.interface_name or "None"))
-        output.append("IP: " + (self.ip or "None"))
-        output.append("MAC: " + (self.mac or "None"))
-        output.append("Network: " + (self.network or "None"))
-        output.append("Libvirt localport: " + (self.local_port or "None"))
-        output.append("Libvirt remote port: " + (self.remote_port or "None"))
-        output.append("PXE Priority: " + str(self.pxe_priority) or "None")
-        output.append("Attributes: " + (str(self.attributes) or "None"))
-
-        return "\n".join(output)
-
 # pylint: disable=R0903
 # Too few public methods.
 class NetworkEdge(object):
-    """A network edge is a collection of two NetworkInterface objects that share a link
+    """A network edge is a collection of two NetworkInterface objects that share a link.
+    This is a simple object to make accessing the interfaces easier.
     """
     def __init__(self, left_side, right_side):
         self.left_side = left_side
@@ -504,6 +436,16 @@ class Inventory(object):
         self.oob_server = None
         self.oob_switch = None
 
+    def calculate_memory(self):
+        """Look at all nodes in the Inventory
+        and return the total memory they will consume
+        """
+        total_memory = 0
+        for node in self.node_collection:
+            total_memory += int(node.memory)
+
+        return total_memory
+
     def add_node(self, node):
         """Add a NetworkNode to the inventory. Returns the updated inventory
         """
@@ -515,41 +457,41 @@ class Inventory(object):
             # There are some OS images we know do not work
             # Prevent them from being loaded.
             if node.vm_os in unsupported_images:
-                print(Styles.FAIL + Styles.BOLD + " ### ERROR: device " + node.hostname +
-                      " -- Incompatible OS for libvirt provider.")
-                print "\tDo not attempt to use a mutated image"
-                print " for Ubuntu16.04 on Libvirt"
-                print "\tuse an ubuntu1604 image which is natively built for libvirt"
-                print "\tlike yk0/ubuntu-xenial."
-                print "\tSee https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection" # pylint: disable=C0301
-                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607" # pylint: disable=C0301
-                print "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609" + Styles.ENDC # pylint: disable=C0301
-
-                exit(1)
+                print_error("Incompatible libvirt OS on " + node.hostname\
+                            + "\tDo not attempt to use a mutated image"
+                            + " for Ubuntu16.04 on Libvirt"
+                            + "\tuse an ubuntu1604 image which is natively built for libvirt"
+                            + "\tlike yk0/ubuntu-xenial."
+                            + "\tSee https://github.com/CumulusNetworks/topology_converter/tree/master/documentation#vagrant-box-selection"  # pylint: disable=C0301
+                            + "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/607"
+                            + "\tSee https://github.com/vagrant-libvirt/vagrant-libvirt/issues/609")
 
         # Identify the oob switch and server if they exist.
         if node.function == "oob-server":
             self.oob_server = node
+            if VERBOSE:
+                print "Found OOB Server " + node.hostname
+
         elif node.function == "oob-switch":
             self.oob_switch = node
+            if VERBOSE:
+                print "Found OOB Switch " + node.nosthame
 
         # Don't allow something to be called "oob-mgmt-server"
         # if it isn't the oob-mgmt-server.
         # This could be made an option check, but is to prevent annoying
         # problems if you forget to set the function.
         if node.hostname == "oob-mgmt-server" and self.oob_server is None:
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: oob-mgmt-server must be set to function = \"oob-server\"" +
-                  Styles.ENDC)
-            exit(1)
+            print_error("The node namded oob-mgmt-server must be set to function = \"oob-server\"")
 
         # Same rules for the oob-mgmt-switch as above for the oob-mgmt-server.
         if node.hostname == "oob-mgmt-switch" and self.oob_switch is None:
-            print(Styles.FAIL + Styles.BOLD +
-                  "### ERROR: oob-mgmt-switch must be set to function = \"oob-switch\""
-                  + Styles.ENDC)
-            exit(1)
+            print_error("The node named oob-mgmt-switch must be set to function = \"oob-switch\"")
+
         self.node_collection[node.hostname] = node
+
+        if VERBOSE:
+            print "Added " + node.hostname + " to inventory"
 
         return self
 
@@ -579,38 +521,52 @@ class Inventory(object):
             # Check if the interface has already been used.
             # Multiaccess interfaces are not supported.
             if self.get_node_by_name(side.hostname).get_interface(side.interface_name) is not None:
-                print(Styles.FAIL + Styles.BOLD + " ### ERROR -- Interface " + side.interface_name +
-                      " Already used on device: " + side.hostname + Styles.ENDC)
-                exit(1)
+                print_error("Interface " + side.interface_name +
+                            " already used on device " + side.hostname)
 
             else:
 
                 # Get a MAC address for the interface, if it doesn't already have one
                 if side.mac is None:
                     side.mac = self.get_mac()
-
+                    if VERBOSE:
+                        print "Interface " + side.interface_name + " on " + side.hostname\
+                              + " assigned MAC " + side.mac
 
         # Build the network links for virtualbox
         if self.provider == "virtualbox":
             network_edge.left_side.network = "network" + str(self.provider_offset)
             network_edge.right_side.network = "network" + str(self.provider_offset)
+            if VERBOSE:
+                print network_edge.left_side.hostname + ":"\
+                      + network_edge.left_side.interface_name + " -- "\
+                      + network_edge.right_side.hostname + ":"\
+                      + network_edge.right_side.interface_name + " assigned offset "\
+                      + self.provider_offset
+
             self.provider_offset += 1
 
         # Build the local and remote ports for libvirt
         if self.provider == "libvirt":
             if self.current_libvirt_port > self.libvirt_gap:
-                print(Styles.FAIL + Styles.BOLD +
-                      " ### ERROR: Configured Port_Gap: (" + str(self.libvirt_gap) + ") \
-                      exceeds the number of links in the topology." \
-                      "Read the help options to fix.\n\n" +
-                      Styles.ENDC)
-                exit(1)
+                print_error("Configured Port_Gap: (" + str(self.libvirt_gap) + ") "
+                            "exceeds the number of links in the topology. "
+                            "Read the help options to fix.\n\n")
 
             network_edge.left_side.local_port = str(self.current_libvirt_port)
             network_edge.right_side.remote_port = str(self.current_libvirt_port)
 
             network_edge.left_side.remote_port = str(self.current_libvirt_port + self.libvirt_gap)
             network_edge.right_side.local_port = str(self.current_libvirt_port + self.libvirt_gap)
+
+            if VERBOSE:
+                print network_edge.left_side.hostname + ":" + network_edge.left_side.interface_name\
+                      + " local port: " + network_edge.left_side.local_port\
+                      + " remote port: " + network_edge.left_side.remote_port
+                print network_edge.right_side.hostname + ":"\
+                      + network_edge.right_side.interface_name\
+                      + " local port: " + network_edge.right_side.local_port\
+                      + " remote port: " + network_edge.right_side.remote_port
 
             self.current_libvirt_port += 1
 
@@ -667,30 +623,39 @@ class Inventory(object):
             try:
                 # If the netmask isn't provided, assume /24
                 if oob_device.other_attributes["mgmt_ip"].find("/") < 0:
+                    if VERBOSE:
+                        print "OOB server IP found without a mask, assuming /24"
                     return ipaddress.ip_interface(
                         unicode(oob_device.other_attributes["mgmt_ip"] + "/24"))
 
                 # If they set the management IP manually
                 # on the existing server, use that one
+                if VERBOSE:
+                    print "OOB server IP found: " + oob_device.other_attributes["mgmt_ip"]
                 return ipaddress.ip_interface(unicode(oob_device.other_attributes["mgmt_ip"]))
-            except Exception:  # pylint: disable=W0703
-                print(Styles.FAIL + Styles.BOLD +
-                      "Configured management IP is invalid on " + oob_device.hostname)
-                exit(1)
+
+            # W0703, too general of exception.
+            # This catches any random errors due to parsing IP input
+            except Exception: # pylint: disable=W0703
+                print_error("Configured management IP is invalid on " + oob_device.hostname)
 
         if oob_device.function == "oob-server":
+            if VERBOSE:
+                print "No management IP defined, assigning 192.168.200.254/24 to OOB Server"
             return ipaddress.ip_interface(u'192.168.200.254/24')
 
         if oob_device.function == "oob-switch":
+            if VERBOSE:
+                print "No management IP defined, assigning 192.168.200.1/24 to OOB Switch"
             return ipaddress.ip_interface(u'192.168.200.1/24')
 
         # If we reach here something went wrong
-        print Styles.FAIL + Styles.BOLD + "Internal error trying to determine management device IP"
-
-        exit(1)
+        print_error("Internal error trying to determine management device IP")
 
         return None
 
+    # R0912 - too many branches
+    # R0915 - too many statements
     def build_mgmt_network(self): # pylint: disable=R0912,R0915
         """Build a management network and add it to the inventory.
         This will create an oob-mgmt-switch and
@@ -700,38 +665,47 @@ class Inventory(object):
         """
 
         mgmt_switch_port_count = 1
-        current_lease = 10
-        dhcp_pool_start = current_lease
-        dhcp_pool_size = 128
         management_ips = set()  # track the management IPs to prevent static-dhcp collisions
 
         # Create an oob-server if the user didn't define one
-        if self.get_node_by_name("oob-mgmt-server") is None:
+        if self.oob_server is None:
             oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server")
             self.add_node(oob_server)
-        else:
-            oob_server = self.get_node_by_name("oob-mgmt-server")
+            if VERBOSE:
+                print "No oob-server found, one has been created"
 
         # Create an oob-switch if the user didn't define one
-        if self.get_node_by_name("oob-mgmt-switch") is None:
+        if self.oob_switch is None:
             oob_switch = NetworkNode(hostname="oob-mgmt-switch", function="oob-switch")
             self.add_node(oob_switch)
+            if VERBOSE:
+                print "No oob-switch found, one has been created"
 
-        else:
-            oob_switch = self.get_node_by_name("oob-mgmt-switch")
-
-        oob_server_ip = self.get_oob_ip(oob_server)
-
-        # Add the oob server and switch to the inventory
-        self.add_node(oob_switch)
+        oob_server_ip = self.get_oob_ip(self.oob_server)
+        oob_server_mask = str(oob_server_ip)[str(oob_server_ip).find("/"):]
+        # Define the DHCP Pool settings based on the OOB IP
+        # If the default IP is used, the pool will start at 192.168.200.10
+        # And be of size 244. This is 256 in a /24, -2 for the network/broadcast
+        # -10 for the starting offset.
+        #
+        # Otherwise, let's dynamically size based on the provided OOB IP
+        # This allows for much larger dynamic pools if required
+        dhcp_pool_start = 10
+        dhcp_pool_size = (oob_server_ip.network.num_addresses - 2) - 10
+        current_lease = 10
 
         # Connect the oob server and switch
         mgmt_port = "swp" + str(mgmt_switch_port_count)
-        self.add_edge(NetworkEdge(NetworkInterface(hostname="oob-mgmt-server",
+        self.add_edge(NetworkEdge(NetworkInterface(hostname=self.oob_server.hostname,
                                                    interface_name="eth1",
                                                    ip=str(oob_server_ip)),
-                                  NetworkInterface(hostname="oob-mgmt-switch",
+                                  NetworkInterface(hostname=self.oob_switch.hostname,
                                                    interface_name=mgmt_port)))
+
+        if VERBOSE:
+            print "Management Link Added: "
+            print self.oob_server.hostname + ":eth1 -- " + self.oob_switch.hostname + mgmt_port
+            print ""
 
         management_ips.add(str(oob_server_ip))
 
@@ -741,8 +715,10 @@ class Inventory(object):
         # because we can't create an edge since it's not connected to anything.
 
         switch_mac = self.get_mac()
-        switch_ip = self.get_oob_ip(oob_switch)
-        oob_switch.other_attributes["bridge"] = {"mac": switch_mac, "ip": switch_ip}
+        switch_ip = self.get_oob_ip(self.oob_switch)
+        self.oob_switch.other_attributes["bridge"] = {"mac": switch_mac, "ip": switch_ip}
+        if VERBOSE:
+            print "OOB-Switch bridge created with MAC " + switch_mac + " and IP " + switch_ip
 
         # Look at all the hosts in the inventory and connect eth0 to the management switch
         for hostname, node_object in self.node_collection.iteritems():
@@ -758,33 +734,34 @@ class Inventory(object):
                     # Check if there is a mask on the mgmt_ip attribute
                     # or assume /24
                     if node_object.other_attributes["mgmt_ip"].find("/") < 0:
+                        if VERBOSE:
+                            print "Management IP " + node_object.other_attributes["mgmt_ip"]\
+                                  + "found on " + hostname + " without mask. Assuming /24"
                         node_ip = ipaddress.ip_interface(
                             unicode(node_object.other_attributes["mgmt_ip"] + "/24"))
                     else:
+                        if VERBOSE:
+                            print "Management IP " + node_object.other_attributes["mgmt_ip"]\
+                                  + "found on " + hostname
                         node_ip = ipaddress.ip_interface(
                             unicode(node_object.other_attributes["mgmt_ip"]))
 
                 except Exception: # pylint: disable=W0703
-                    print "Management IP address on " + node_object.hostname + " is invalid"
-                    exit(1)
+                    print_error("Management IP address on " + node_object.hostname + " is invalid")
 
                 # Prevent an IP collision between the oob-server and the node
                 # the node_ip is a CIDR IP/Mask, while everything else has been
                 # just an IP, so pull out just the IP and cast to string to compare
                 if str(node_ip.ip) in management_ips:
-                    print "Management IP address on " + node_object.hostname + \
-                          " is already in use. Likely it matches another static IP"
-                    exit(1)
+                    print_error("Management IP address on " + node_object.hostname
+                                + " is already in use. Likely it matches another static IP")
 
                 # Verify node_ip in subnet of oob-server ip
                 if not oob_server_ip.network == node_ip.network:
-                    print "Management IP address on " + node_object.hostname + \
-                          " is not in the same subnet " + \
-                          " as the OOB server. OOB Server is configured for " + \
-                          str(oob_server_ip) + ". " + node_object.hostname + " is configured" + \
-                          " for " + str(node_ip)
-
-                    exit(1)
+                    print_error("Management IP address on " + node_object.hostname
+                                + " is not in the same subnet as the OOB server."
+                                + " OOB Server is configured for " + str(oob_server_ip) + ". "
+                                + node_object.hostname + " is configured for " + str(node_ip))
 
                 mgmt_port = "swp" + str(mgmt_switch_port_count)
                 self.add_edge(NetworkEdge(
@@ -797,24 +774,19 @@ class Inventory(object):
             else:
 
                 if current_lease > dhcp_pool_size:
-                    print(Styles.FAIL + Styles.BOLD +
-                          " ### ERROR: Number of devices in management " +
-                          "network (" + str(len(self.node_collection)) +
-                          " including oob-server and oob-switch) exceeds" +
-                          " DCHP pool size (" + str(dhcp_pool_size - dhcp_pool_start) + ")" +
-                          Styles.ENDC)
-                    exit(1)
+                    print_error("Number of devices in management "
+                                + "network (" + str(len(self.node_collection))
+                                + " including oob-server and oob-switch) exceeds"
+                                + " DCHP pool size (" + str(dhcp_pool_size - dhcp_pool_start) + ")")
 
-                # If the oob-server is an IP in the middle of the range, try the next one
-                if oob_server_ip.ip == oob_server_ip.network[current_lease]:
 
+                # Check if this IP is taken, if so, keep trying until we find the next free IP
+                while str(oob_server_ip.network[current_lease]) + oob_server_mask in management_ips:
                     # If picking the next IP exceeds the pool, exit.
                     if current_lease + 1 > dhcp_pool_size:
-                        print(Styles.FAIL + Styles.BOLD +
-                              " ### ERROR: Number of devices in management " +
-                              "network exceeds DCHP pool size (" + str(dhcp_pool_size) + ")" +
-                              Styles.ENDC)
-                        exit(1)
+                        print_error("Number of devices in management "
+                                    + "network exceeds DCHP pool size ("
+                                    + str(dhcp_pool_size) + ")")
 
                     current_lease += 1
 
@@ -823,7 +795,7 @@ class Inventory(object):
                                      ip=str(oob_server_ip.network[current_lease])),
                     NetworkInterface(hostname="oob-mgmt-switch",
                                      interface_name="swp" + str(mgmt_switch_port_count))))
-                management_ips.add(str(oob_server_ip.network[current_lease]))
+                management_ips.add(str(oob_server_ip.network[current_lease]) + oob_server_mask)
                 current_lease += 1
 
 
@@ -1593,6 +1565,9 @@ def main():
     if cli_args.create_mgmt_network:
         inventory.build_mgmt_network()
 
+    if cli_args.memory:
+        print inventory.calculate_memory()
+        exit(0)
 
     exit(0)
 

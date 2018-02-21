@@ -840,8 +840,7 @@ class ParseGraphvizTopology(object):
         """
 
         # Pass through simple linter first to identify easy problems
-        if not self.lint_topology_file(topology_file):
-            exit(1)
+        self.lint_topology_file(topology_file)
 
         # Open the .dot file and parse with graphviz
         try:
@@ -911,31 +910,26 @@ class ParseGraphvizTopology(object):
                                     + "Has hidden unicode characters in it which"\
                                     + " prevent it from being converted to ASCII"\
                                     + " Try manually typing it instead of copying and pasting.")
-                        return False
 
                     if line.count("\"") % 2 == 1:
                         print_error("Line " + str(count) + ": Has an odd"\
                                     + " number of quotation characters \n"\
                                     + str(line))
-                        return False
 
                     if line.count("'") % 2 == 1:
                         print_error("Line " + str(count) + ": Has an odd"\
                                     + " number of quotation characters \n"\
                                     + str(line))
-                        return False
 
                     if line.count(":") == 2:
                         if " -- " not in line:
                             print_error("Line " + str(count) + " does not"\
                                         + "contain the required \" -- \" to"\
                                         + " seperate a link")
-                            return False
 
         #W0703 - Exception too broad
         except Exception: # pylint: disable=W0703
             print_error("Problem opening file, " + topology_file + " perhaps it doesn't exist?")
-            return False
 
         return True
 
@@ -954,6 +948,12 @@ class ParseGraphvizTopology(object):
         right_interface = graphviz_edge.get_destination().split(":")[1].replace('"', '')
         right_mac = graphviz_edge.get("right_mac")
         right_pxe = graphviz_edge.get("right_pxebootinterface")
+
+        if left_mac:
+            left_mac = left_mac.replace('"', '')
+
+        if right_mac:
+            right_mac = right_mac.replace('"', '')
 
         left = NetworkInterface(hostname=left_hostname,
                                 interface_name=left_interface, mac=left_mac)
@@ -1160,16 +1160,25 @@ def render_ansible_hostfile(inventory, topology_file, input_dir):
     jinja_variables = {"version": VERSION, "topology": topology_file}
 
     node_dict = {}
+    es_plural_suffix = ["ss", "sh", "ch", "x", "z", "s"]
 
     for node in inventory.node_collection.itervalues():
         # Don't do anything for fake devices
         if node.function == "fake":
             continue
 
-        if node.function in node_dict:
-            node_dict[node.function].append(node)
+        ansible_function = node.function
+
+        # If the plural of the word is "es" then
+        # add an e for when the jinja template adds an "s"
+        # For examples, switches
+        if node.function[-2:] in es_plural_suffix or node.function[-1:] in es_plural_suffix:
+            ansible_function = node.function + "e"
+
+        if ansible_function in node_dict:
+            node_dict[ansible_function].append(node)
         else:
-            node_dict[node.function] = [node]
+            node_dict[ansible_function] = [node]
 
 
     jinja_variables["node_dict"] = node_dict

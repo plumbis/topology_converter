@@ -1,0 +1,34 @@
+# Created by Topology-Converter v5.0.0
+#    Template Revision: v5.0.0
+#    https://github.com/cumulusnetworks/topology_converter
+#    using topology data from: ./tests/dot_files/reference_topology.dot
+
+[leafs]
+leaf04 ansible_user=cumulus
+leaf02 ansible_user=cumulus
+leaf03 ansible_user=cumulus
+leaf01 ansible_user=cumulus
+
+[spines]
+spine02 ansible_user=cumulus
+spine01 ansible_user=cumulus
+
+[oob-switches]
+oob-mgmt-switch ansible_user=cumulus
+
+[hosts]
+edge01 ansible_user=cumulus
+server01 ansible_user=cumulus
+server03 ansible_user=cumulus
+server02 ansible_user=cumulus
+server04 ansible_user=cumulus
+
+[exits]
+exit02 ansible_user=cumulus
+exit01 ansible_user=cumulus
+
+[internets]
+internet ansible_user=cumulus
+
+[oob-servers]
+oob-mgmt-server ansible_user=cumulus

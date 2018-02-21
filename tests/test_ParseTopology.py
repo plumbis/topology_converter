@@ -401,3 +401,183 @@ class TestParseTopology(object):
                 assert node.pxehost is True
                 assert inventory.get_node_by_name(
                     "pxehost").get_interface("eth0").pxe_priority == 1
+
+
+    def test_parse_reference_topology_virtualbox(self):
+        parsed_topo = self.topology_object.parse_topology("./tests/dot_files/reference_topology.dot")
+        inventory = tc.Inventory()
+        inventory.provider = "virtualbox"
+        inventory.add_parsed_topology(parsed_topo)
+
+        assert len(self.topology_object.nodes) == 16
+
+        for node in self.topology_object.nodes:
+            if node.hostname == "leaf01":
+                assert node.hostname == "leaf01"
+                assert node.function == "leaf"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000011"
+
+            elif node.hostname == "leaf02":
+                assert node.hostname == "leaf02"
+                assert node.function == "leaf"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000012"
+
+            elif node.hostname == "leaf03":
+                assert node.hostname == "leaf03"
+                assert node.function == "leaf"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000013"
+
+            elif node.hostname == "leaf04":
+                assert node.hostname == "leaf04"
+                assert node.function == "leaf"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000014"
+
+            elif node.hostname == "spine01":
+                assert node.hostname == "spine01"
+                assert node.function == "spine"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000021"
+
+            elif node.hostname == "spine02":
+                assert node.hostname == "spine02"
+                assert node.function == "spine"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000022"
+
+            elif node.hostname == "exit01":
+                assert node.hostname == "exit01"
+                assert node.function == "exit"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000041"
+
+            elif node.hostname == "exit02":
+                assert node.hostname == "exit02"
+                assert node.function == "exit"
+                assert node.config == "./helper_scripts/config_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000042"
+
+            elif node.hostname == "server01":
+                assert node.hostname == "server01"
+                assert node.function == "host"
+                assert node.config == "./helper_scripts/config_server.sh"
+                assert node.pxehost is False
+                assert node.memory == "512"
+                assert node.os_version is None
+                assert node.vm_os == "yk0/ubuntu-xenial"
+                assert node.interfaces["eth1"].mac == "000300111101"
+                assert node.interfaces["eth2"].mac == "000300111102"
+                assert node.interfaces["eth0"].mac == "a00000000031"
+
+            elif node.hostname == "server02":
+                assert node.hostname == "server02"
+                assert node.function == "host"
+                assert node.config == "./helper_scripts/config_server.sh"
+                assert node.pxehost is False
+                assert node.memory == "512"
+                assert node.os_version is None
+                assert node.vm_os == "yk0/ubuntu-xenial"
+                assert node.interfaces["eth1"].mac == "000300222201"
+                assert node.interfaces["eth2"].mac == "000300222202"
+                assert node.interfaces["eth0"].mac == "a00000000032"
+
+            elif node.hostname == "server03":
+                assert node.hostname == "server03"
+                assert node.function == "host"
+                assert node.config == "./helper_scripts/config_server.sh"
+                assert node.pxehost is False
+                assert node.memory == "512"
+                assert node.os_version is None
+                assert node.vm_os == "yk0/ubuntu-xenial"
+                assert node.interfaces["eth1"].mac == "000300333301"
+                assert node.interfaces["eth2"].mac == "000300333302"
+                assert node.interfaces["eth0"].mac == "a00000000033"
+
+            elif node.hostname == "server04":
+                assert node.hostname == "server04"
+                assert node.function == "host"
+                assert node.config == "./helper_scripts/config_server.sh"
+                assert node.pxehost is False
+                assert node.memory == "512"
+                assert node.os_version is None
+                assert node.vm_os == "yk0/ubuntu-xenial"
+                assert node.interfaces["eth1"].mac == "000300444401"
+                assert node.interfaces["eth2"].mac == "000300444402"
+                assert node.interfaces["eth0"].mac == "a00000000034"
+
+            elif node.hostname == "edge01":
+                assert node.hostname == "edge01"
+                assert node.function == "host"
+                assert node.config == "./helper_scripts/config_server.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version is None
+                assert node.vm_os == "yk0/ubuntu-xenial"
+                assert node.interfaces["eth0"].mac == "a00000000051"
+
+            elif node.hostname == "internet":
+                assert node.hostname == "internet"
+                assert node.function == "internet"
+                assert node.config == "./helper_scripts/config_internet.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vagrant_interface == "swp48"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["eth0"].mac == "a00000000050"
+
+            elif node.hostname == "oob-mgmt-switch":
+                assert node.hostname == "oob-mgmt-switch"
+                assert node.function == "oob-switch"
+                assert node.config == "./helper_scripts/config_oob_switch.sh"
+                assert node.pxehost is False
+                assert node.memory == "768"
+                assert node.os_version == "3.5.1"
+                assert node.vagrant_interface == "eth0"
+                assert node.vm_os == "CumulusCommunity/cumulus-vx"
+                assert node.interfaces["swp1"].mac == "a00000000061"
+
+            elif node.hostname == "oob-mgmt-server":
+                assert node.hostname == "oob-mgmt-server"
+                assert node.function == "oob-server"
+                assert node.config == "./helper_scripts/config_oob_server.sh"
+                assert node.pxehost is False
+                assert node.memory == "1024"
+                assert node.os_version == "1.0.4"
+                assert node.vagrant_interface == "eth0"
+                assert node.vm_os == "CumulusCommunity/vx_oob_server"

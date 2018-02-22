@@ -14,13 +14,11 @@ class TestCheckFiles(object):  # pylint: disable=R0903
     def test_Vagrantfile_j2(self): # pylint: disable=R0201
         """Test validating Vagrantfile.j2
         """
-        #cli = tc.parse_arguments()
-        #args = cli.parse_args(["tests/simple.dot", "-v"])
-        print os.listdir("./templates/Vagrantfile")
-        assert os.path.isfile("./templates/Vagrantfile/Vagrantfile.j2")
-        #tc.check_files(args, "./templates/Vagrantfile/Vagrantfile.j2")
+        cli = tc.parse_arguments()
+        args = cli.parse_args(["tests/simple.dot", "-v"])
+        tc.check_files(args, "./templates/Vagrantfile/Vagrantfile.j2")
 
-        #assert True
+        assert True
 
 
     @raises(SystemExit)

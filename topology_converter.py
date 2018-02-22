@@ -1407,15 +1407,10 @@ def render_ztp_oob(inventory, topology_file, input_dir):
     return template.render(jinja_variables)
 
 
-def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
-    """Generate the contents of the Vagrantfile
-    based on a jinja2 template
+def get_vagrantfile_variables(inventory, cli):  # pylint: disable=R0912
+    """Generate the variables to pass to the Vagrantfile .j2 template.
+    This is a unique function to make testing the Vagrantfile.j2 sub-templates easier.
     """
-    if cli.template:
-        vagrant_template = cli.template
-    else:
-        vagrant_template = "Vagrantfile.j2"
-
     # the variables that will be passed to the template
     jinja_variables = {"version": VERSION,
                        "topology": cli.topology_file, "cli_args": cli}
@@ -1427,14 +1422,13 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     # key is the function
     # value is list of hostnames
     function_dict = {}
-    jinja_variables["known_functions"] = ["oob-switch", "internet", "hosts"
-                                          "exit", "superspine", "spine", "leaf", "tor"]
-    node_dict = OrderedDict()
 
-    # Iterate over all of the nodes
-    # Put them in both a function: node dict
-    # as well as a hostname: node dict
-    # this makes processing in the j2 file easier.
+    # The functions we know about
+    # oob-server, oob-switch, exit, superspine, spine, leaf, tor, host
+    jinja_variables["known_functions"] = ["oob-server", "oob-switch", "exit", "superspine",
+                                          "spine", "leaf", "tor", "host"]
+
+    # Iterate over all of the nodes and organize them as a {function: [nodes]} dict
     for node in inventory.node_collection.itervalues():
         # Don't do anything for fake devices
         if node.function == "fake":
@@ -1454,6 +1448,8 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     #
     # To do this, check if we have anything of that function from function_dict
     # if so, take the list of nodes with that function and put it in our OrderedDict
+    node_dict = OrderedDict()
+
     if "oob-server" in function_dict:
         node_dict["oob-server"] = function_dict["oob-server"]
 
@@ -1478,12 +1474,25 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     if "host" in function_dict:
         node_dict["host"] = function_dict["host"]
 
+    # for any devices that we don't care about boot order
+    # make sure we add them to the OrderedDict
     for function in function_dict:
         if function not in node_dict:
             node_dict[function] = function_dict[function]
 
-    jinja_variables["function_dict"] = function_dict
     jinja_variables["nodes"] = node_dict
+    return jinja_variables
+
+
+def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
+    """Renders a complete Vagrantfile from a jinja2 template
+    """
+    if cli.template:
+        vagrant_template = cli.template
+    else:
+        vagrant_template = "Vagrantfile.j2"
+
+    jinja_variables = get_vagrantfile_variables(inventory, cli)
 
     # It's required to set the jinja2 environment
     # so that the {% include %} statements within the Vagrantfile.j2

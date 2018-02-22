@@ -2,7 +2,6 @@
 """Test suite for check_files method
 """
 # pylint: disable=C0103
-import os
 from nose.tools import raises
 import topology_converter as tc
 

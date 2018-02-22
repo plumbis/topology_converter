@@ -16,11 +16,11 @@ group {
       hardware ethernet {{ attributes["mac"]}};
       fixed-address {{ attributes["ip"] }};
       option host-name "{{ hostname }}";
-      {% if attributes["ztp"] is defined -%}
+      {%- if attributes["ztp"] is defined %}
       option cumulus-provision-url "http://{{ oob_server_ip }}/{{ attributes["ztp"] }}";
       {%- endif %}
   }
-
 {% endfor -%}
 }
 #End of static host group
+

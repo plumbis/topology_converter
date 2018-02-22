@@ -37,13 +37,14 @@ class TestRenderAnsible(object):  # pylint: disable=W0612,R0903
         result = tc.render_ansible_hostfile(
             inventory, topology_file, "./templates/auto_mgmt_network/")
 
+        print result
         assert result == open(expected_result_file).read()
 
     def test_reference_topology(self):
         """Test generating the ansible.hosts for the reference topology dot file
         """
         topology_file = "./tests/dot_files/reference_topology.dot"
-        expected_result_file = "./tests/expected_jinja_outputs/reference_topology.hosts"
+        expected_result_file = "./tests/expected_jinja_outputs/reference_topology_ansible.hosts"
         parser = tc.ParseGraphvizTopology()
         parsed_topology = parser.parse_topology(topology_file)
         inventory = tc.Inventory()

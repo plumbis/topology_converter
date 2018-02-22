@@ -1,5 +1,5 @@
 #!/bin/bash
-# Created by Topology-Converter v{{ version }}
+# Created by Topology-Converter v5.0.0
 #    Template Revision: v4.6.5
 
 function error() {
@@ -7,7 +7,7 @@ function error() {
 }
 trap error ERR
 
-SSH_URL="http://{{ oob_server_ip }}/authorized_keys"
+SSH_URL="http://192.168.0.254/authorized_keys"
 #Setup SSH key authentication for Ansible
 mkdir -p /home/cumulus/.ssh
 wget -O /home/cumulus/.ssh/authorized_keys $SSH_URL
@@ -24,4 +24,3 @@ echo "cumulus ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/10_cumulus
 reboot
 exit 0
 #CUMULUS-AUTOPROVISIONING
-

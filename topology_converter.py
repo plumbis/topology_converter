@@ -26,7 +26,9 @@ VERBOSE = False
 
 # R0903 too few public methods
 # Overall error message styling needs to be improved, ignoring until that happens.
-class Styles(object): # pylint: disable=R0903
+
+
+class Styles(object):  # pylint: disable=R0903
     """Defines the terminal text colors for messages
     """
     HEADER = ''
@@ -37,6 +39,7 @@ class Styles(object): # pylint: disable=R0903
     BOLD = ''
     UNDERLINE = '\033[4m'
     ENDC = '\033[0m'
+
 
 class NetworkNode(object):
     """Object that represents a specific node in the network.
@@ -116,11 +119,11 @@ class NetworkNode(object):
         self.legacy = False
         self.vagrant_interface = "vagrant"
 
-        if VERBOSE: # pragma: no cover
+        if VERBOSE:  # pragma: no cover
             print "Building NetworkNode " + self.hostname + ". Function set as " + self.function
 
         if other_attributes is None:
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "No other attributes found"
             self.other_attributes = dict()
         else:
@@ -128,26 +131,32 @@ class NetworkNode(object):
 
         self.mgmt_ip = self.get_node_mgmt_ip()
 
+        # If the user set the mgmt IP on the oob switch, start to populate the bridge attribute
+        # If they didn't set the mgmt IP this will be handled in the creation of the oob network
+        # If they don't create an oob network, then we don't care about any of this.
+        if self.mgmt_ip is not None and self.function == "oob-switch":
+            self.other_attributes["bridge"] = {"ip": self.mgmt_ip}
+
         if "pxehost" in self.other_attributes:
             self.pxehost = self.other_attributes["pxehost"] == "True"
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Pxehost set for " + self.hostname \
-                + ". Default OS assignment will be skipped"
+                    + ". Default OS assignment will be skipped"
 
         if self.function in defaults:
             if vm_os is None and not self.pxehost:
                 vm_os = defaults[function]["os"]
-                if VERBOSE: # pragma: no cover
+                if VERBOSE:  # pragma: no cover
                     print "OS not found, using default of : " + vm_os
 
             if memory is None:
                 memory = defaults[function]["memory"]
-                if VERBOSE: # pragma: no cover
+                if VERBOSE:  # pragma: no cover
                     print "No memory defined, using default of " + memory
 
             if config is None and function != "fake":
                 config = defaults[function]["config"]
-                if VERBOSE: # pragma: no cover
+                if VERBOSE:  # pragma: no cover
                     print "No config defined, using default of " + config
                 if not os.path.isfile(config):
                     print_warning("Node \"" + hostname +
@@ -155,30 +164,32 @@ class NetworkNode(object):
 
         try:
             if int(memory) <= 0:
-                print_error("Memory must be greater than 0mb on " + self.hostname)
+                print_error(
+                    "Memory must be greater than 0mb on " + self.hostname)
 
         except (ValueError, TypeError):
             print_error("Memory value is invalid for " + self.hostname)
 
         if "playbook" in self.other_attributes:
             self.playbook = self.other_attributes["playbook"]
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Found playbook " + self.playbook
 
         if "remap" in self.other_attributes:
             self.remap = self.other_attributes["remap"] == "True"
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Remap found and set to " + str(self.remap)
 
         if "ports" in self.other_attributes:
             try:
                 if int(self.other_attributes["ports"]) <= 0:
-                    print_error("Ports value " + self.hostname + " must be greater than 0")
+                    print_error("Ports value " + self.hostname +
+                                " must be greater than 0")
             except(ValueError, TypeError):
                 print_error("Ports value is invalid for " + self.hostname)
 
             self.ports = self.other_attributes["ports"]
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Ports " + self.ports + " defined on " + self.hostname
 
         if "ssh_port" in self.other_attributes:
@@ -190,22 +201,22 @@ class NetworkNode(object):
                 print_error("SSH port value is invalid for " + self.hostname)
 
             self.ssh_port = self.other_attributes["ssh_port"]
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "SSH port " + self.ssh_port + " defined on " + self.hostname
 
         if "vagrant" in self.other_attributes:
             self.vagrant_interface = self.other_attributes["vagrant"]
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Vagrant interface " + self.vagrant_interface + " defined on " + self.hostname
 
         if "vagrant_user" in self.other_attributes:
             self.vagrant_user = self.other_attributes["vagrant_user"]
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Vagrant user " + self.vagrant_user + " defined on " + self.hostname
 
         if "legacy" in self.other_attributes:
             self.legacy = self.other_attributes["legacy"] == "True"
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Legacy flag set to " + self.legacy + " on " + self.hostname
 
         self.vm_os = vm_os
@@ -219,6 +230,13 @@ class NetworkNode(object):
     def get_node_mgmt_ip(self):
         """Determine the management IP and return it as an IPInterface object.
         """
+
+        # If the user builds their own management network we will not
+        # create the bridge attribute or assign a mac/ip to it
+        # If they define the management IP on the oob-switch
+        # create the bridge attribute and populate the IP
+        # The mac will be populated when it's added to the inventory
+        # since the inventory tracks/owns the mac pool.
         if "mgmt_ip" in self.other_attributes:
             try:
                 # Check if there is a mask on the mgmt_ip attribute
@@ -226,16 +244,22 @@ class NetworkNode(object):
                 if self.other_attributes["mgmt_ip"].find("/") < 0:
                     if VERBOSE:  # pragma: no cover
                         print "Management IP " + self.other_attributes["mgmt_ip"]\
-                                + " found on " + self.hostname + " without mask. Assuming /24"
+                            + " found on " + self.hostname + " without mask. Assuming /24"
                     return ipaddress.ip_interface(unicode(self.other_attributes["mgmt_ip"] + "/24"))
                 else:
                     if VERBOSE:  # pragma: no cover
                         print "Management IP " + self.other_attributes["mgmt_ip"]\
-                                + " found on " + self.hostname
+                            + " found on " + self.hostname
                     return ipaddress.ip_interface(unicode(self.other_attributes["mgmt_ip"]))
 
             except Exception:  # pylint: disable=W0703
-                print_error("Management IP address on " + self.hostname + " is invalid")
+                print_error("Management IP address on " +
+                            self.hostname + " is invalid")
+
+        # If the management IP wasn't set on the OOB switch
+        # populate the "bridge" attribute
+        elif self.function == "oob-switch":
+            self.other_attributes["bridge"] = {}
 
         return None
 
@@ -277,7 +301,7 @@ class NetworkNode(object):
             return False
 
         # Hostname can only contain A-Z, 0-9 and "-"
-        if not re.compile('^[A-Za-z0-9\-]+$').match(hostname): # pylint: disable=W1401
+        if not re.compile('^[A-Za-z0-9\-]+$').match(hostname):  # pylint: disable=W1401
             print(Styles.FAIL + Styles.BOLD +
                   " ### ERROR: Node name can only contain letters numbers and dash(-) " +
                   "'%s' is not valid!\n" % hostname + Styles.ENDC)
@@ -285,7 +309,6 @@ class NetworkNode(object):
             return False
 
         return True
-
 
     def get_interface(self, interface_name):
         """Returns the specificed NetworkInterface object for a given interface name.
@@ -296,7 +319,6 @@ class NetworkNode(object):
 
         return None
 
-
     def add_interface(self, network_interface):
         """Adds a NetworkInterface object to the interface collection.
         Returns the updated NetworkNode object.
@@ -306,7 +328,8 @@ class NetworkNode(object):
         # and make sure there isn't a second interface
         # trying to be a pxe interface.
         if self.has_pxe_interface and network_interface.pxe_priority > 0:
-            print_error(" Device " + self.hostname + " sets pxebootinterface more than once.")
+            print_error(" Device " + self.hostname +
+                        " sets pxebootinterface more than once.")
 
         # If this is the first time we've seen a pxe interface
         # then flip the flag on the Node
@@ -316,7 +339,6 @@ class NetworkNode(object):
         self.interfaces[network_interface.interface_name] = network_interface
 
         return self
-
 
 
 class NetworkInterface(object):
@@ -343,11 +365,12 @@ class NetworkInterface(object):
     remote_port - for Libvirt only, the libvirt remote_port
     """
     # pylint: disable=R0902, R0913
+
     def __init__(self, hostname, interface_name, mac=None, ip=None,
                  network=None, local_port=None, remote_port=None):
         self.hostname = hostname
         self.interface_name = self.remove_interface_slash(interface_name)
-        self.ip = ip # pylint: disable=C0103
+        self.ip = ip  # pylint: disable=C0103
         self.mac = self.validate_mac(mac)
         self.network = network
         self.local_port = local_port
@@ -372,12 +395,10 @@ class NetworkInterface(object):
 
         return interface_name
 
-
     def add_attribute(self, attribute):
         """Add an attribute dict to the existing attributes dict
         """
         self.attributes.update(attribute)
-
 
     def validate_mac(self, mac):
         """Validate that the input MAC address is valid.
@@ -400,17 +421,19 @@ class NetworkInterface(object):
         try:
             int(mac, 16)
 
-        except Exception: # pylint: disable=W0703
-            print_error(self.hostname + " MAC " + mac + " could not be converted to hex. "\
-             + "Perhaps there are bad characters?")
+        except Exception:  # pylint: disable=W0703
+            print_error(self.hostname + " MAC " + mac + " could not be converted to hex. "
+                        + "Perhaps there are bad characters?")
 
         # Broadcast
         if mac == "ffffffffffff":
-            print_error(self.hostname + " MAC " + mac + " is a broadcast address")
+            print_error(self.hostname + " MAC " +
+                        mac + " is a broadcast address")
 
         # Invalid
         if mac == "000000000000":
-            print_error(self.hostname + " MAC " + mac + " is an invalid all zero MAC")
+            print_error(self.hostname + " MAC " + mac +
+                        " is an invalid all zero MAC")
 
         # Multicast
         if mac[:6] == "01005e":
@@ -425,6 +448,7 @@ class NetworkEdge(object):
     """A network edge is a collection of two NetworkInterface objects that share a link.
     This is a simple object to make accessing the interfaces easier.
     """
+
     def __init__(self, left_side, right_side):
         self.left_side = left_side
         self.right_side = right_side
@@ -460,12 +484,11 @@ class Inventory(object):
         self.current_mac = "0x443839000000"
         self.oob_server = None
         self.oob_switch = None
-        self.mgmt_ips = set() # This is the set of management IPs in the network
+        self.mgmt_ips = set()  # This is the set of management IPs in the network
         # this is used to prevent duplicates.
         # all of the elements should be of type ipaddress.ip_interface
         # ip_interface objects are in CIDR notation (10.1.1.1/24)
         # By default if no mask is provided it will create a /32, which isn't what we want.
-
 
     def calculate_memory(self):
         """Look at all nodes in the Inventory
@@ -489,7 +512,7 @@ class Inventory(object):
             # There are some OS images we know do not work
             # Prevent them from being loaded.
             if node.vm_os in unsupported_images:
-                print_error("Incompatible libvirt OS on " + node.hostname\
+                print_error("Incompatible libvirt OS on " + node.hostname
                             + "\tDo not attempt to use a mutated image"
                             + " for Ubuntu16.04 on Libvirt"
                             + "\tuse an ubuntu1604 image which is natively built for libvirt"
@@ -501,12 +524,18 @@ class Inventory(object):
         # Identify the oob switch and server if they exist.
         if node.function == "oob-server":
             self.oob_server = node
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Found OOB Server " + node.hostname
 
         elif node.function == "oob-switch":
+            bridge_mac = self.get_mac()
+
+            # Bridge attribute would have been set when the node was
+            # created with a management IP.
+            node.other_attributes["bridge"].update({"mac": bridge_mac})
+
             self.oob_switch = node
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "Found OOB Switch " + node.nosthame
 
         # Don't allow something to be called "oob-mgmt-server"
@@ -514,11 +543,13 @@ class Inventory(object):
         # This could be made an option check, but is to prevent annoying
         # problems if you forget to set the function.
         if node.hostname == "oob-mgmt-server" and self.oob_server is None:
-            print_error("The node namded oob-mgmt-server must be set to function = \"oob-server\"")
+            print_error(
+                "The node namded oob-mgmt-server must be set to function = \"oob-server\"")
 
         # Same rules for the oob-mgmt-switch as above for the oob-mgmt-server.
         if node.hostname == "oob-mgmt-switch" and self.oob_switch is None:
-            print_error("The node named oob-mgmt-switch must be set to function = \"oob-switch\"")
+            print_error(
+                "The node named oob-mgmt-switch must be set to function = \"oob-switch\"")
 
         if node.mgmt_ip is not None and node.mgmt_ip in self.mgmt_ips:
             print_error("Management IP address on " + node.hostname
@@ -528,11 +559,10 @@ class Inventory(object):
 
         self.node_collection[node.hostname] = node
 
-        if VERBOSE: # pragma: no cover
+        if VERBOSE:  # pragma: no cover
             print "Added " + node.hostname + " to inventory"
 
         return self
-
 
     def get_node_by_name(self, node_name):
         """Return a specific NetworkNode() in the inventory by it's name.
@@ -542,7 +572,6 @@ class Inventory(object):
             return None
 
         return self.node_collection[node_name]
-
 
     def add_edge(self, network_edge):
         """Add a NetworkEdge to the inventory and links the
@@ -567,20 +596,22 @@ class Inventory(object):
                 # Get a MAC address for the interface, if it doesn't already have one
                 if side.mac is None:
                     side.mac = self.get_mac()
-                    if VERBOSE: # pragma: no cover
+                    if VERBOSE:  # pragma: no cover
                         print "Interface " + side.interface_name + " on " + side.hostname\
                               + " assigned MAC " + side.mac
 
         # Build the network links for virtualbox
         if self.provider == "virtualbox":
-            network_edge.left_side.network = "network" + str(self.provider_offset)
-            network_edge.right_side.network = "network" + str(self.provider_offset)
-            if VERBOSE: # pragma: no cover
+            network_edge.left_side.network = "network" + \
+                str(self.provider_offset)
+            network_edge.right_side.network = "network" + \
+                str(self.provider_offset)
+            if VERBOSE:  # pragma: no cover
                 print network_edge.left_side.hostname + ":"\
-                      + network_edge.left_side.interface_name + " -- "\
-                      + network_edge.right_side.hostname + ":"\
-                      + network_edge.right_side.interface_name + " assigned offset "\
-                      + self.provider_offset
+                    + network_edge.left_side.interface_name + " -- "\
+                    + network_edge.right_side.hostname + ":"\
+                    + network_edge.right_side.interface_name + " assigned offset "\
+                    + self.provider_offset
 
             self.provider_offset += 1
 
@@ -592,19 +623,22 @@ class Inventory(object):
                             "Read the help options to fix.\n\n")
 
             network_edge.left_side.local_port = str(self.current_libvirt_port)
-            network_edge.right_side.remote_port = str(self.current_libvirt_port)
+            network_edge.right_side.remote_port = str(
+                self.current_libvirt_port)
 
-            network_edge.left_side.remote_port = str(self.current_libvirt_port + self.libvirt_gap)
-            network_edge.right_side.local_port = str(self.current_libvirt_port + self.libvirt_gap)
+            network_edge.left_side.remote_port = str(
+                self.current_libvirt_port + self.libvirt_gap)
+            network_edge.right_side.local_port = str(
+                self.current_libvirt_port + self.libvirt_gap)
 
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print network_edge.left_side.hostname + ":" + network_edge.left_side.interface_name\
-                      + " local port: " + network_edge.left_side.local_port\
+                    + " local port: " + network_edge.left_side.local_port\
                       + " remote port: " + network_edge.left_side.remote_port
                 print network_edge.right_side.hostname + ":"\
-                      + network_edge.right_side.interface_name\
-                      + " local port: " + network_edge.right_side.local_port\
-                      + " remote port: " + network_edge.right_side.remote_port
+                    + network_edge.right_side.interface_name\
+                    + " local port: " + network_edge.right_side.local_port\
+                    + " remote port: " + network_edge.right_side.remote_port
 
             self.current_libvirt_port += 1
 
@@ -615,7 +649,6 @@ class Inventory(object):
         right_node.add_interface(network_edge.right_side)
 
         return self
-
 
     def get_mac(self):
         """Provides a unique mac address.
@@ -637,7 +670,6 @@ class Inventory(object):
 
         return new_mac
 
-
     def add_parsed_topology(self, parsed_topology):
         """Provided with a ParseGraphvizTopology object which has
         been populated with a topology (nodes and edges).
@@ -651,22 +683,16 @@ class Inventory(object):
 
         return self
 
-
     # R0912 - too many branches
     # R0915 - too many statements
     # R0914 - too many local variables
-    def build_mgmt_network(self): # pylint: disable=R0912,R0915, R0914
+    def build_mgmt_network(self):  # pylint: disable=R0912,R0915, R0914
         """Build a management network and add it to the inventory.
         This will create an oob-mgmt-switch and
         oob-mgmt-server NetworkNode if they do not exist and will
         attach every inventory device's eth0 interface to
         the oob-mgmt-server
         """
-
-    # TODO: This is broken. Currently if oob server is .1 the oob-switch will be in conflict
-    # Likely need to make a function to find the next IP
-    # and keep the pool info globally.
-
         mgmt_switch_port_count = 1
 
         # Create an oob-server if the user didn't define one
@@ -680,14 +706,14 @@ class Inventory(object):
             oob_server = NetworkNode(hostname="oob-mgmt-server", function="oob-server",
                                      other_attributes={"mgmt_ip": "192.168.200.254/24"})
             self.add_node(oob_server)
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "No oob-server found, one has been created"
         else:
             oob_server = self.oob_server
             if self.oob_server.mgmt_ip is None:
-                self.oob_server.mgmt_ip = ipaddress.ip_interface(u'192.168.200.254/24')
+                self.oob_server.mgmt_ip = ipaddress.ip_interface(
+                    u'192.168.200.254/24')
                 self.mgmt_ips.add(self.oob_server.mgmt_ip)
-
 
         # Define the DHCP Pool settings based on the OOB IP
         # If the default IP is used, the pool will start at 192.168.200.10
@@ -701,55 +727,50 @@ class Inventory(object):
 
         if dhcp_pool_size <= 3:
             # /29 gives 6 usable hosts, allowing for oob server, switch and hosts
-            print_error("OOB Server subnet is too small for a valid DHCP pool."\
+            print_error("OOB Server subnet is too small for a valid DHCP pool."
                         + " Minimum subnet mask is /29")
-
 
         # Create an oob-switch if the user didn't define one
         if self.oob_switch is None:
-            self.add_node(NetworkNode(hostname="oob-mgmt-switch", function="oob-switch"))
+            self.add_node(NetworkNode(
+                hostname="oob-mgmt-switch", function="oob-switch"))
 
-            if VERBOSE: # pragma: no cover
+            if VERBOSE:  # pragma: no cover
                 print "No oob-switch found, one has been created"
 
         # The management switch is a bit special
         # it's the only device with a logical management interface
         # as a result, we are going to put the IP and MAC in oob-mgmt-switch Node's attributes
         # because we can't create an edge since it's not connected to anything.
-
-        switch_mac = self.get_mac()
-
         if self.oob_switch.mgmt_ip is None:
 
             # Everything is stored as ipaddress.IPInterface (in CIDR)
             # the .network[current_lease] returns an IPAddress without a mask
             oob_server_mask = "/" + \
-                str(self.oob_server.mgmt_ip)[str(self.oob_server.mgmt_ip).find("/") + 1 :]
+                str(self.oob_server.mgmt_ip)[
+                    str(self.oob_server.mgmt_ip).find("/") + 1:]
             candidate_lease = str(
                 self.oob_server.mgmt_ip.network[current_lease])
-            candidate_ip_object = ipaddress.ip_interface(unicode(candidate_lease + oob_server_mask))
+            candidate_ip_object = ipaddress.ip_interface(
+                unicode(candidate_lease + oob_server_mask))
 
             # Check if this IP is taken, if so, keep trying until we find the next free IP
             while candidate_ip_object in self.mgmt_ips:
 
                 current_lease += 1
-                candidate_lease = str(self.oob_server.mgmt_ip.network[current_lease])
+                candidate_lease = str(
+                    self.oob_server.mgmt_ip.network[current_lease])
                 candidate_ip_object = ipaddress.ip_interface(
                     unicode(candidate_lease + oob_server_mask))
 
             oob_switch_ip = candidate_ip_object
 
             self.oob_switch.mgmt_ip = oob_switch_ip
+            self.oob_switch.other_attributes["bridge"].update({"ip": oob_switch_ip})
             self.mgmt_ips.add(oob_switch_ip)
 
             if VERBOSE:  # pragma: no cover
                 print "OOB-Switch dynamically assigned IP " + self.oob_switch.mgmt_ip
-
-        self.oob_switch.other_attributes["bridge"] = {"mac": switch_mac,
-                                                      "ip": self.oob_switch.mgmt_ip}
-        if VERBOSE:  # pragma: no cover
-            print  "OOB-Switch bridge created with MAC " + switch_mac + " and IP "\
-                  + self.oob_switch.mgmt_ip
 
         # Connect the oob server and switch
         mgmt_port = "swp" + str(mgmt_switch_port_count)
@@ -759,7 +780,7 @@ class Inventory(object):
                                   NetworkInterface(hostname=self.oob_switch.hostname,
                                                    interface_name=mgmt_port)))
 
-        if VERBOSE: # pragma: no cover
+        if VERBOSE:  # pragma: no cover
             print "Management Link Added: "
             print self.oob_server.hostname + ":eth1 -- " + self.oob_switch.hostname + mgmt_port
             print ""
@@ -790,7 +811,8 @@ class Inventory(object):
 
             else:
 
-                candidate_lease = str(self.oob_server.mgmt_ip.network[current_lease])
+                candidate_lease = str(
+                    self.oob_server.mgmt_ip.network[current_lease])
                 candidate_ip_object = ipaddress.ip_interface(
                     unicode(candidate_lease + oob_server_mask))
 
@@ -803,7 +825,8 @@ class Inventory(object):
                                     + str(dhcp_pool_size) + ")")
 
                     current_lease += 1
-                    candidate_lease = str(self.oob_server.mgmt_ip.network[current_lease])
+                    candidate_lease = str(
+                        self.oob_server.mgmt_ip.network[current_lease])
                     candidate_ip_object = ipaddress.ip_interface(
                         unicode(candidate_lease + oob_server_mask))
 
@@ -830,8 +853,6 @@ class ParseGraphvizTopology(object):
         self.nodes = list()
         self.edges = list()
 
-
-
     def parse_topology(self, topology_file):
         """
         Parse the provide graphviz topology object.
@@ -844,17 +865,18 @@ class ParseGraphvizTopology(object):
 
         # Open the .dot file and parse with graphviz
         try:
-            graphviz_topology = pydotplus.graphviz.graph_from_dot_file(topology_file)
+            graphviz_topology = pydotplus.graphviz.graph_from_dot_file(
+                topology_file)
 
         except Exception:  # pragma: no cover # pylint: disable=W0703
             # Two known ways to get here:
             # 1.) The file changed or was deleted between lint_topology_file() and graphviz call
             # 2.) lint topo file should be extended to handle missed failure.
             # as a result this isn't in coverage
-            print_error("Cannot parse the provided topology.dot file (%s)\n"\
-                        + "There is probably a syntax error of some kind "\
-                        + "common causes include failing to close quotation "\
-                        + "marks and hidden characters from copy/pasting device"\
+            print_error("Cannot parse the provided topology.dot file (%s)\n"
+                        + "There is probably a syntax error of some kind "
+                        + "common causes include failing to close quotation "
+                        + "marks and hidden characters from copy/pasting device"
                         + "names into the topology file.")
         try:
             graphviz_nodes = graphviz_topology.get_node_list()
@@ -865,7 +887,7 @@ class ParseGraphvizTopology(object):
             # if this is hit, it's either a corner, like file change
             # or we need to expand the linter
             print exception
-            print_error("There is a syntax error in your topology file."\
+            print_error("There is a syntax error in your topology file."
                         + "Read the error output above for any clues as to the source.")
 
         for node in graphviz_nodes:
@@ -905,31 +927,32 @@ class ParseGraphvizTopology(object):
                         line.encode('ascii', 'ignore')
 
                     except UnicodeDecodeError:
-                        print_error("Line " + str(count) + ":\n"\
-                                    + str(line) + "\n"\
-                                    + "Has hidden unicode characters in it which"\
-                                    + " prevent it from being converted to ASCII"\
+                        print_error("Line " + str(count) + ":\n"
+                                    + str(line) + "\n"
+                                    + "Has hidden unicode characters in it which"
+                                    + " prevent it from being converted to ASCII"
                                     + " Try manually typing it instead of copying and pasting.")
 
                     if line.count("\"") % 2 == 1:
-                        print_error("Line " + str(count) + ": Has an odd"\
-                                    + " number of quotation characters \n"\
+                        print_error("Line " + str(count) + ": Has an odd"
+                                    + " number of quotation characters \n"
                                     + str(line))
 
                     if line.count("'") % 2 == 1:
-                        print_error("Line " + str(count) + ": Has an odd"\
-                                    + " number of quotation characters \n"\
+                        print_error("Line " + str(count) + ": Has an odd"
+                                    + " number of quotation characters \n"
                                     + str(line))
 
                     if line.count(":") == 2:
                         if " -- " not in line:
-                            print_error("Line " + str(count) + " does not"\
-                                        + "contain the required \" -- \" to"\
+                            print_error("Line " + str(count) + " does not"
+                                        + "contain the required \" -- \" to"
                                         + " seperate a link")
 
-        #W0703 - Exception too broad
-        except Exception: # pylint: disable=W0703
-            print_error("Problem opening file, " + topology_file + " perhaps it doesn't exist?")
+        # W0703 - Exception too broad
+        except Exception:  # pylint: disable=W0703
+            print_error("Problem opening file, " +
+                        topology_file + " perhaps it doesn't exist?")
 
         return True
 
@@ -939,13 +962,17 @@ class ParseGraphvizTopology(object):
         returns a new NetworkEdge object
         """
 
-        left_hostname = graphviz_edge.get_source().split(":")[0].replace('"', '')
-        left_interface = graphviz_edge.get_source().split(":")[1].replace('"', '')
+        left_hostname = graphviz_edge.get_source().split(":")[
+            0].replace('"', '')
+        left_interface = graphviz_edge.get_source().split(":")[
+            1].replace('"', '')
         left_mac = graphviz_edge.get("left_mac")
         left_pxe = graphviz_edge.get("left_pxebootinterface")
 
-        right_hostname = graphviz_edge.get_destination().split(":")[0].replace('"', '')
-        right_interface = graphviz_edge.get_destination().split(":")[1].replace('"', '')
+        right_hostname = graphviz_edge.get_destination().split(":")[
+            0].replace('"', '')
+        right_interface = graphviz_edge.get_destination().split(":")[
+            1].replace('"', '')
         right_mac = graphviz_edge.get("right_mac")
         right_pxe = graphviz_edge.get("right_pxebootinterface")
 
@@ -1013,16 +1040,19 @@ class ParseGraphvizTopology(object):
                 vm_os = graphviz_attributes["os"].replace("\"", "")
 
             elif attribute_key == "function":
-                function = graphviz_attributes["function"].replace("\"", "").lower()
+                function = graphviz_attributes["function"].replace(
+                    "\"", "").lower()
 
             elif attribute_key == "memory":
                 memory = graphviz_attributes["memory"].replace("\"", "")
 
             elif attribute_key == "config":
-                config = graphviz_attributes["config"].replace("\"", "").lower()
+                config = graphviz_attributes["config"].replace(
+                    "\"", "").lower()
 
             elif attribute_key == "version":
-                os_version = graphviz_attributes["version"].replace("\"", "").lower()
+                os_version = graphviz_attributes["version"].replace(
+                    "\"", "").lower()
 
             # For any unhandled attributes, pass them through unmodified
             else:
@@ -1136,13 +1166,15 @@ def check_files(cli_args, vagrant_template):
     if cli_args.template:
         custom_template = str(cli_args.template[0][0])
         if not os.path.isfile(custom_template):
-            print_error("Provided template file-- \""\
+            print_error("Provided template file-- \""
                         + custom_template + "\" does not exist!")
 
     if not os.path.isfile(vagrant_template):
-        print_error("Default Vagrant Template \"" + vagrant_template + "\" does not exist!")
+        print_error("Default Vagrant Template \"" +
+                    vagrant_template + "\" does not exist!")
 
     return True
+
 
 def format_mac(mac_address):
     """Take in a mac address string like 00a22345feff0012
@@ -1154,6 +1186,8 @@ def format_mac(mac_address):
 def render_ansible_hostfile(inventory, topology_file, input_dir):
     """Provides the logic to build an ansible hosts file from a jinja2 template
     """
+    if VERBOSE:  # pragma: no cover
+        print "Generating ansible hosts file"
     hostfile_template = os.path.join(input_dir, "ansible_hostfile.j2")
 
     # the variables that will be passed to the template
@@ -1168,6 +1202,10 @@ def render_ansible_hostfile(inventory, topology_file, input_dir):
             continue
 
         ansible_function = node.function
+        if node.mgmt_ip is not None:
+            node_mgmt_ip = str(node.mgmt_ip)[:str(node.mgmt_ip).find("/")]
+        else:
+            node_mgmt_ip = None
 
         # If the plural of the word is "es" then
         # add an e for when the jinja template adds an "s"
@@ -1176,10 +1214,9 @@ def render_ansible_hostfile(inventory, topology_file, input_dir):
             ansible_function = node.function + "e"
 
         if ansible_function in node_dict:
-            node_dict[ansible_function].append(node)
+            node_dict[ansible_function].append({"hostname": node.hostname, "mgmt_ip": node_mgmt_ip})
         else:
-            node_dict[ansible_function] = [node]
-
+            node_dict[ansible_function] = [{"hostname": node.hostname, "mgmt_ip": node_mgmt_ip}]
 
     jinja_variables["node_dict"] = node_dict
     template = jinja2.Template(open(hostfile_template).read())
@@ -1200,17 +1237,16 @@ def render_dhcpd_conf(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print_error("Something went wrong, no OOB Server exists. Failed to build dhcpd.conf")
+        print_error(
+            "Something went wrong, no OOB Server exists. Failed to build dhcpd.conf")
 
-    #ipaddress.network returns CIDR 192.168.1.0/24
-    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
-    jinja_variables["dhcp_subnet"] = str(oob_ipaddress.network).split("/")[0]
-    jinja_variables["dhcp_netmask"] = str(oob_ipaddress.netmask)
-    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
 
-    # TODO: Make this dynamic
-    jinja_variables["dhcp_start"] = "192.168.200.10"
-    jinja_variables["dhcp_end"] = "192.168.200.138"
+    jinja_variables["dhcp_subnet"] = str(oob_server.mgmt_ip.network.network_address)
+    jinja_variables["dhcp_netmask"] = str(oob_server.mgmt_ip.netmask)
+    jinja_variables["oob_server_ip"] = str(oob_server.mgmt_ip.ip)
+
+    jinja_variables["dhcp_start"] = str(oob_server.mgmt_ip.network.network_address + 1)
+    jinja_variables["dhcp_end"] = str(oob_server.mgmt_ip.network.broadcast_address - 1)
 
     template = jinja2.Template(open(dhcpd_conf_template).read())
 
@@ -1231,10 +1267,10 @@ def render_dhcpd_hosts(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print_error("Something went wrong, no OOB Server exists. Failed to build dhcpd.hosts")
+        print_error(
+            "Something went wrong, no OOB Server exists. Failed to build dhcpd.hosts")
 
-    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
-    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+    jinja_variables["oob_server_ip"] = str(oob_server.mgmt_ip).split("/")[0]
 
     node_dict = {}
 
@@ -1249,16 +1285,17 @@ def render_dhcpd_hosts(inventory, topology_file, input_dir):
 
         if node.function == "oob-switch":
             # Assign OOB IP to the oob-switch bridge interface
-            mac_address = format_mac(node.other_attributes["bridge"]["mac"][2:])
+            mac_address = format_mac(
+                node.other_attributes["bridge"]["mac"][2:])
             node_dict[node.hostname] = {
-                "mac": mac_address, "ip": node.other_attributes["bridge"]["ip"]}
+                "mac": mac_address, "ip": node.mgmt_ip}
 
         else:
             dhcp_interface = "eth0"
             # The mac is stored as 0x...., send the substring without the 0x part to be formatted
             mac_address = format_mac(node.interfaces[dhcp_interface].mac[2:])
             node_dict[node.hostname] = {
-                "mac": mac_address, "ip": node.interfaces[dhcp_interface].ip}
+                "mac": mac_address, "ip": node.mgmt_ip}
 
         if "ztp" in node.other_attributes:
             node_dict[node.hostname]["ztp"] = node.other_attributes["ztp"]
@@ -1286,10 +1323,10 @@ def render_hosts_file(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print_error("Something went wrong, no OOB Server exists. Failed to build DNS hosts")
+        print_error(
+            "Something went wrong, no OOB Server exists. Failed to build DNS hosts")
 
-    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
-    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+    jinja_variables["oob_server_ip"] = str(oob_server.mgmt_ip).split("/")[0]
     jinja_variables["oob_hostname"] = oob_server.hostname
 
     node_dict = {}
@@ -1304,12 +1341,8 @@ def render_hosts_file(inventory, topology_file, input_dir):
         if node.function == "fake":
             continue
 
-        if node.function == "oob-switch":
-            node_dict[node.hostname] = {
-                "ip": str(node.other_attributes["bridge"]["ip"]).split("/")[0]}
 
-        else:
-            node_dict[node.hostname] = {"ip": node.interfaces["eth0"].ip}
+        node_dict[node.hostname] = {"ip": str(node.mgmt_ip).split("/")[0]}
 
     jinja_variables["node_dict"] = node_dict
     template = jinja2.Template(open(dns_hosts).read())
@@ -1331,17 +1364,19 @@ def render_oob_server_sh(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print_error("Something went wrong, no OOB Server exists. Failed to build"\
+        print_error("Something went wrong, no OOB Server exists. Failed to build"
                     + "OOB_Server_config_auto_mgmt.sh")
 
-    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
-    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
-    jinja_variables["oob_cidr"] = str(oob_ipaddress)
+    jinja_variables["oob_server_ip"] = str(oob_server.mgmt_ip).split("/")[0]
+    jinja_variables["oob_cidr"] = str(oob_server.mgmt_ip)
 
     if "ntp" in oob_server.other_attributes:
         jinja_variables["oob"] = {"ntp": oob_server.other_attributes["ntp"]}
     else:
         jinja_variables["oob"] = {"ntp": "pool.ntp.org"}
+
+    if oob_server.vagrant_interface is not None:
+        jinja_variables["vagrant_interface"] = oob_server.vagrant_interface
 
     template = jinja2.Template(open(oob_config).read())
 
@@ -1362,18 +1397,17 @@ def render_ztp_oob(inventory, topology_file, input_dir):
 
     # but check just in case
     if oob_server is None:
-        print_error("Something went wrong, no OOB Server exists. Failed to build ztp_oob.sh")
-        exit(1)
+        print_error(
+            "Something went wrong, no OOB Server exists. Failed to build ztp_oob.sh")
 
-    oob_ipaddress = ipaddress.ip_interface(unicode((oob_server.get_interface("eth1").ip)))
-    jinja_variables["oob_server_ip"] = str(oob_ipaddress).split("/")[0]
+    jinja_variables["oob_server_ip"] = str(oob_server.mgmt_ip).split("/")[0]
 
     template = jinja2.Template(open(oob_config).read())
 
     return template.render(jinja_variables)
 
 
-def render_vagrantfile(inventory, input_dir, cli): #pylint: disable=R0912
+def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     """Generate the contents of the Vagrantfile
     based on a jinja2 template
     """
@@ -1383,7 +1417,8 @@ def render_vagrantfile(inventory, input_dir, cli): #pylint: disable=R0912
         vagrant_template = "Vagrantfile.j2"
 
     # the variables that will be passed to the template
-    jinja_variables = {"version": VERSION, "topology": cli.topology_file, "cli_args": cli}
+    jinja_variables = {"version": VERSION,
+                       "topology": cli.topology_file, "cli_args": cli}
 
     # time.time() returns float 1518118901.04, the whole number is good enough
     jinja_variables["epoch_time"] = str(time.time()).split(".")[0]
@@ -1412,7 +1447,6 @@ def render_vagrantfile(inventory, input_dir, cli): #pylint: disable=R0912
 
         else:
             function_dict[node.function] = [node]
-
 
     # We need an ordered collection of the devices in the network
     # This allows us to bring up devices in a defined order.
@@ -1448,7 +1482,6 @@ def render_vagrantfile(inventory, input_dir, cli): #pylint: disable=R0912
         if function not in node_dict:
             node_dict[function] = function_dict[function]
 
-
     jinja_variables["function_dict"] = function_dict
     jinja_variables["nodes"] = node_dict
 
@@ -1474,7 +1507,7 @@ def write_file(location, contents):
     try:
         with open(location, 'w') as output_file:
             output_file.write(contents)
-    except:  #pylint: disable=W0702
+    except:  # pylint: disable=W0702
         print_error("ERROR: Could not write file " + location)
 
 
@@ -1528,6 +1561,7 @@ def print_error(error_string):
     print error_format + bold_format + " ### ERROR -- " + error_string + endc
     exit(1)
 
+
 def print_header(output_string):
     """Format and print header messages
     """
@@ -1535,18 +1569,20 @@ def print_header(output_string):
 
     print header_format + output_string
 
+
 def print_blue(output_string):
     """Print a string in blue
     """
     blue_format = "\033[94m"
     print blue_format + output_string
 
+
 def main():
     """Main point of entry to parse a topology file,
     build an inventory and product a Vagrantfile
     """
     # W0603 - use of global statement
-    global VERBOSE # pylint: disable=W0603
+    global VERBOSE  # pylint: disable=W0603
     vagrant_template = "templates/Vagrantfile.j2"
     cli = parse_arguments()
     cli_args = cli.parse_args()
@@ -1572,6 +1608,7 @@ def main():
         exit(0)
 
     exit(0)
+
 
 if __name__ == "__main__":
     main()

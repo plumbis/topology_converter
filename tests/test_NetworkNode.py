@@ -4,9 +4,9 @@
 # C0103 name doesn't confirm to snake case naming style
 # R0201 method could be a function
 # pylint: disable=C0103,R0201
+import ipaddress
 from nose.tools import raises
 import topology_converter as tc
-import ipaddress
 
 class Test_NetworkNode(object): # pylint: disable=R0904
     """Test class for NetworkNode tests

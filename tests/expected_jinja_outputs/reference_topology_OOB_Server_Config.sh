@@ -1,8 +1,8 @@
 #!/bin/bash
-# Created by Topology-Converter v{{ version }}
+# Created by Topology-Converter v5.0.0
 #    Template Revision: v5.0.0
 #    https://github.com/cumulusnetworks/topology_converter
-#    using topology data from: {{ topology }}
+#    using topology data from: ./tests/dot_files/reference_topology.dot
 
 echo "################################################"
 echo "  Running Automatic Management Server Setup..."
@@ -15,8 +15,8 @@ echo " Detected vagrant user is: $username"
 #       KNOBS
 #######################
 
-REPOSITORY="https://github.com/CumulusNetworks/{{customer}}"
-REPONAME="{{customer}}"
+REPOSITORY="https://github.com/CumulusNetworks/"
+REPONAME=""
 
 #Install Automation Tools
 puppet=0
@@ -40,7 +40,7 @@ install_puppet(){
     sed -i 's/-Xms2g/-Xms512m/g' /etc/default/puppetserver
     sed -i 's/-Xmx2g/-Xmx512m/g' /etc/default/puppetserver
     echo "*" > /etc/puppetlabs/puppet/autosign.conf
-    sed -i 's/{{ oob_server_ip }}/{{ oob_server_ip }} puppet /g'>> /etc/hosts
+    sed -i 's/192.168.0.254/192.168.0.254 puppet /g'>> /etc/hosts
 }
 
 install_ansible(){
@@ -79,17 +79,14 @@ cat <<EOT > /etc/network/interfaces
 auto lo
 iface lo inet loopback
 
-{% if vagrant_interface is defined %}
-auto {{ vagrant_interface }}
-iface {{ vagrant_interface }} inet dhcp
-{% else %}
-auto vagrant
-iface vagrant inet dhcp
-{% endif %}
+
+auto eth0
+iface eth0 inet dhcp
+
 
 auto eth1
 iface eth1 inet static
-    address {{ oob_cidr }}
+    address 192.168.0.254/24
 
 EOT
 
@@ -123,7 +120,7 @@ filegen loopstats file loopstats type day enable
 filegen peerstats file peerstats type day enable
 filegen clockstats file clockstats type day enable
 
-server {{ oob["ntp"] }}
+server pool.ntp.org
 
 # By default, exchange time with everybody, but don't allow configuration.
 restrict -4 default kod notrap nomodify nopeer noquery
@@ -188,7 +185,7 @@ if [ $puppet -eq 1 ]; then
 sudo rm -rf /etc/puppetlabs/code/environments/production
 sudo ln -s  /home/cumulus/$REPONAME/puppet/ /etc/puppetlabs/code/environments/production
 sudo /opt/puppetlabs/bin/puppet module install puppetlabs-stdlib
-#sudo bash -c 'echo "certname = {{ oob_server_ip }}" >> /etc/puppetlabs/puppet/puppet.conf'
+#sudo bash -c 'echo "certname = 192.168.0.254" >> /etc/puppetlabs/puppet/puppet.conf'
 echo " ### Starting PUPPET Master ###"
 echo "     (this may take a while 30 secs or so...)"
 sudo systemctl restart puppetserver.service
@@ -217,4 +214,3 @@ EOT
 echo "############################################"
 echo "      DONE!"
 echo "############################################"
-

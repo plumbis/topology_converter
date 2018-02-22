@@ -403,8 +403,13 @@ class TestParseTopology(object):
                     "pxehost").get_interface("eth0").pxe_priority == 1
 
 
-    def test_parse_reference_topology_virtualbox(self):
-        parsed_topo = self.topology_object.parse_topology("./tests/dot_files/reference_topology.dot")
+    # R0912 - Too many branches
+    # R0915 - Too many statements
+    def test_parse_reference_topology_virtualbox(self):  # pylint: disable=R0912,R0915
+        """Test parsing the reference topology when virtualbox is the provider
+        """
+        parsed_topo = self.topology_object.parse_topology(
+            "./tests/dot_files/reference_topology.dot")
         inventory = tc.Inventory()
         inventory.provider = "virtualbox"
         inventory.add_parsed_topology(parsed_topo)

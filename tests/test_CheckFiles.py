@@ -15,7 +15,7 @@ class TestCheckFiles(object):  # pylint: disable=R0903
         cli = tc.parse_arguments()
         args = cli.parse_args(["tests/simple.dot", "-v"])
 
-        tc.check_files(args, "templates/Vagrantfile/Vagrantfile.j2")
+        tc.check_files(args, "./templates/Vagrantfile/Vagrantfile.j2")
 
         assert True
 
@@ -27,7 +27,7 @@ class TestCheckFiles(object):  # pylint: disable=R0903
         cli = tc.parse_arguments()
         args = cli.parse_args(["tests/simple.dot", "-v"])
 
-        tc.check_files(args, "templates/fake_Vagrantfile.j2")
+        tc.check_files(args, "./templates/fake_Vagrantfile.j2")
 
 
     def test_custom_template(self): # pylint: disable=R0201
@@ -35,9 +35,9 @@ class TestCheckFiles(object):  # pylint: disable=R0903
         """
         cli = tc.parse_arguments()
         args = cli.parse_args(
-            ["tests/simple.dot", "-t", "templates/Vagrantfile/Vagrantfile.j2", "Vagrantfile"])
+            ["tests/simple.dot", "-t", "./templates/Vagrantfile/Vagrantfile.j2", "Vagrantfile"])
 
-        tc.check_files(args, "templates/Vagrantfile/Vagrantfile.j2")
+        tc.check_files(args, "./templates/Vagrantfile/Vagrantfile.j2")
 
         assert True
 
@@ -47,8 +47,8 @@ class TestCheckFiles(object):  # pylint: disable=R0903
         """
         cli = tc.parse_arguments()
         args = cli.parse_args(
-            ["tests/simple.dot", "-t", "templates/fake_Vagrantfile.j2", "Vagrantfile"])
+            ["tests/simple.dot", "-t", "./templates/fake_Vagrantfile.j2", "Vagrantfile"])
 
-        tc.check_files(args, "templates/Vagrantfile.j2")
+        tc.check_files(args, "./templates/Vagrantfile.j2")
 
         assert True

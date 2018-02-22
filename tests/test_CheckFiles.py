@@ -2,8 +2,10 @@
 """Test suite for check_files method
 """
 # pylint: disable=C0103
+import os
 from nose.tools import raises
 import topology_converter as tc
+
 
 class TestCheckFiles(object):  # pylint: disable=R0903
     """Test suite to validate files exist
@@ -12,12 +14,12 @@ class TestCheckFiles(object):  # pylint: disable=R0903
     def test_Vagrantfile_j2(self): # pylint: disable=R0201
         """Test validating Vagrantfile.j2
         """
-        cli = tc.parse_arguments()
-        args = cli.parse_args(["tests/simple.dot", "-v"])
+        #cli = tc.parse_arguments()
+        #args = cli.parse_args(["tests/simple.dot", "-v"])
+        assert os.path.isfile("./templates/Vagrantfile/Vagrantfile.j2")
+        #tc.check_files(args, "./templates/Vagrantfile/Vagrantfile.j2")
 
-        tc.check_files(args, "../templates/Vagrantfile/Vagrantfile.j2")
-
-        assert True
+        #assert True
 
 
     @raises(SystemExit)

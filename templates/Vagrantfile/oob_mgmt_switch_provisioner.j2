@@ -1,0 +1,3 @@
+{# Additional provisioning for the oob-mgmt-switch #}
+# Transfer Bridge File
+device.vm.provision "file", source: "./auto_mgmt_network/bridge-untagged", destination: "~/bridge-untagged"

@@ -1,0 +1,9 @@
+device.vm.network "private_network",
+    :mac => "{{ node["interface"]["mac"]|replace("0x","") }}",
+    :libvirt__tunnel_type => 'udp',
+    :libvirt__tunnel_local_ip => '{{ node["interface"]["ip"] }}',
+    :libvirt__tunnel_local_port => '{{ node["interface"]["local_port"] }}',
+    :libvirt__tunnel_ip => '{{ node["interface"]["remote_ip"] }}',
+    :libvirt__tunnel_port => '{{ node["interface"]["remote_port"] }}',
+    :libvirt__iface_name => '{{ node["interface"]["interface_name"] }}',
+    auto_config: false

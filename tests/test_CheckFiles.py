@@ -15,7 +15,7 @@ class TestCheckFiles(object):  # pylint: disable=R0903
         cli = tc.parse_arguments()
         args = cli.parse_args(["tests/simple.dot", "-v"])
 
-        tc.check_files(args, "./templates/Vagrantfile/Vagrantfile.j2")
+        tc.check_files(args, "../templates/Vagrantfile/Vagrantfile.j2")
 
         assert True
 

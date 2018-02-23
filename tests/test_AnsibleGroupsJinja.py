@@ -3,7 +3,7 @@
 """
 # pylint: disable=C0103
 import topology_converter as tc
-import os
+
 class TestAnsibleGroupsJinja(object):  # pylint: disable=W0612,R0903
     """Test suite for validating the output of the ansible_groups jinja template
     """
@@ -37,6 +37,6 @@ class TestAnsibleGroupsJinja(object):  # pylint: disable=W0612,R0903
         inventory = tc.Inventory()
         inventory.add_parsed_topology(parsed_topology)
         result = tc.render_vagrantfile(inventory, "./templates/", self.cli)
-        expected_result_file = "./tests/expected_jinja_outputs/reference_topology_ansible_groups_jinja"
+        expected_result_file = "./tests/expected_jinja_outputs/reference_topology_ansible_groups_jinja"  # pylint: disable=C0301
 
         assert result == open(expected_result_file).read()

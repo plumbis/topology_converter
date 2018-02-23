@@ -50,7 +50,7 @@ class TestAnsibleGroupsJinja(object):  # pylint: disable=W0612,R0903
         include_result = "./tests/expected_jinja_outputs/reference_topology_ansible_groups_jinja"  # pylint: disable=C0301
         expected_output = []
         expected_output.append("  #Generating Ansible Host File at following location:")
-        expected_output.append("  #    ./.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory")
+        expected_output.append("  #    ./.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory")  # pylint: disable=C0301
         expected_output.append("  config.vm.provision \"ansible\" do |ansible|")
         expected_output.append("    ansible.playbook = \"./helper_scripts/empty_playbook.yml\"")
         expected_output.append("")
@@ -59,4 +59,3 @@ class TestAnsibleGroupsJinja(object):  # pylint: disable=W0612,R0903
         expected_output.append("  end")
         expected_output.append("")
         assert result == "\n".join(expected_output)
-

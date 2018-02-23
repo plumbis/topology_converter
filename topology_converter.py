@@ -1363,7 +1363,7 @@ def render_oob_server_sh(inventory, topology_file, input_dir):
     """Generate the contents of the oob server config.sh
     file based on a jinja2 template
     """
-    oob_config = os.path.join(input_dir, "OOB_Server_config_auto_mgmt.sh.j2")
+    oob_config = os.path.join(input_dir, "OOB_Server_Config_auto_mgmt.sh.j2")
 
     # the variables that will be passed to the template
     jinja_variables = {"version": VERSION, "topology": topology_file}

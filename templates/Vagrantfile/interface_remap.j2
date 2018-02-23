@@ -4,28 +4,20 @@
 {% elif node["other_attributes"]["remap"] -%}
     # REMAP Disabled for this node
 {% else -%}
-    
-{% include "delete_udev_directory.j2" %}
 
+{% include "./Vagrantfile/delete_udev_directory.j2" %}
     {% for interface in node["interfaces"].values() %}
-
       device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: {{ interface["mac"]|replace("0x","") }} --> {{ interface["interface_name"] }}'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="{{ interface["mac"]|format_mac }}", NAME="{{ interface["interface_name"] }}", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+echo '  INFO: Adding UDEV Rule: {{ interface["mac"] | replace("0x","") | format_mac }} --> {{ interface["interface_name"] }}'
+echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="{{ interface["mac"] | replace("0x","") | format_mac }}", NAME="{{ interface["interface_name"] }}", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
 udev_rule
-     {% endfor %}
-
-{% if node["other_attributes"]["vagrant"] %}
-    {% set vagrant_interface = node["other_attributes"]["vagrant"] %}
-{%- else -%}
-    {% set vagrant_interface = "vagrant" %}
-{% endif %}
+     {%- endfor %}
 
       device.vm.provision :shell , :inline => <<-vagrant_interface_rule
-echo '  INFO: Adding UDEV Rule: Vagrant interface = {{ vagrant_interface }}'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{ifindex}=="2", NAME="{{ vagrant_interface }}", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+echo '  INFO: Adding UDEV Rule: Vagrant interface = {{ node["vagrant_interface"] }}'
+echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{ifindex}=="2", NAME="{{ node["vagrant_interface"] }}", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
 echo "#### UDEV Rules (/etc/udev/rules.d/70-persistent-net.rules) ####"
 cat /etc/udev/rules.d/70-persistent-net.rules
 vagrant_interface_rule
 
-{% endif -%}
+{%- endif %}

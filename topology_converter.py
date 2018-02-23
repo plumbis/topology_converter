@@ -1182,6 +1182,16 @@ def format_mac(mac_address):
     """
     return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
 
+def get_plural(input_string):
+    """ Adds an "e" to English words that need to end in '-es'
+    """
+    es_plural_suffix = ["ss", "sh", "ch", "x", "z", "s"]
+
+    if input_string[-2:] in es_plural_suffix or input_string[-1:] in es_plural_suffix:
+        return input_string + "e"
+
+    return input_string
+
 
 def render_ansible_hostfile(inventory, topology_file, input_dir):
     """Provides the logic to build an ansible hosts file from a jinja2 template
@@ -1194,7 +1204,6 @@ def render_ansible_hostfile(inventory, topology_file, input_dir):
     jinja_variables = {"version": VERSION, "topology": topology_file}
 
     node_dict = {}
-    es_plural_suffix = ["ss", "sh", "ch", "x", "z", "s"]
 
     for node in inventory.node_collection.itervalues():
         # Don't do anything for fake devices
@@ -1207,11 +1216,11 @@ def render_ansible_hostfile(inventory, topology_file, input_dir):
         else:
             node_mgmt_ip = None
 
+
         # If the plural of the word is "es" then
         # add an e for when the jinja template adds an "s"
         # For examples, switches
-        if node.function[-2:] in es_plural_suffix or node.function[-1:] in es_plural_suffix:
-            ansible_function = node.function + "e"
+        ansible_function = get_plural(node.function)
 
         if ansible_function in node_dict:
             node_dict[ansible_function].append({"hostname": node.hostname, "mgmt_ip": node_mgmt_ip})
@@ -1488,7 +1497,9 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     """Renders a complete Vagrantfile from a jinja2 template
     """
     if cli.template:
-        vagrant_template = cli.template
+        # [0] is the template
+        # [1] is the file output location
+        vagrant_template = cli.template[0][0]
     else:
         vagrant_template = "Vagrantfile.j2"
 
@@ -1500,8 +1511,10 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     env = jinja2.Environment()
     env.loader = jinja2.FileSystemLoader(input_dir)
 
-    # pass the format_mac() method to jinja2 as a filter
+    # pass the format_mac() and get_plural() methods to jinja2 as a filter
     env.filters["format_mac"] = format_mac
+    env.filters["get_plural"] = get_plural
+
     template = env.get_template(vagrant_template)
 
     return template.render(jinja_variables)

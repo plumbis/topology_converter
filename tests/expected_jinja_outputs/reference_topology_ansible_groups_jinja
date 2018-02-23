@@ -1,0 +1,12 @@
+
+    # ANSIBLE GROUPS CONFIGURATION
+    ansible.groups = {
+      "oob-servers" => ["oob-mgmt-server",],
+      "oob-switches" => ["oob-mgmt-switch",],
+      "exits" => ["exit02","exit01",],
+      "spines" => ["spine02","spine01",],
+      "leafs" => ["leaf04","leaf02","leaf03","leaf01",],
+      "hosts" => ["edge01","server01","server03","server02","server04",],
+      "internets" => ["internet",],
+      "network:children" => ["oob-servers","oob-switches","exits","spines","leafs","hosts",]
+    }

@@ -1,23 +1,16 @@
-# ANSIBLE GROUPS CONFIGURATION
+
+    # ANSIBLE GROUPS CONFIGURATION
     ansible.groups = {
-{%- for function, nodes in function_dict.items() %}
-      {%- if function == "oob-switch" %}
-      "{{ function }}es" => [
-      {%- else %}
-      "{{ function }}s" => [
-      {%- endif -%}
+{%- for function, nodes in nodes.items() %}
+      "{{ function|get_plural }}s" => [
           {%- for node in nodes -%}
           "{{ node["hostname"] }}",
           {%- endfor -%} ],
 {%- endfor %}
       "network:children" => [
-          {%- for function, hostnames in function_dict.items() -%}
+          {%- for function, hostnames in nodes.items() -%}
             {%- if function in known_functions -%}
-              {%- if function == "oob-switch" -%}
-              "{{ function }}es",
-              {%- else -%}
-              "{{ function }}s",
-              {%- endif -%}
+              "{{ function|get_plural }}s",
             {%- endif -%}
           {%- endfor -%}]
     }

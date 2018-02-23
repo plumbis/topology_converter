@@ -1,0 +1,7 @@
+
+    # ANSIBLE GROUPS CONFIGURATION
+    ansible.groups = {
+      "spines" => ["spine01",],
+      "leafs" => ["leaf04","leaf02","leaf03","leaf01",],
+      "network:children" => ["spines","leafs",]
+    }

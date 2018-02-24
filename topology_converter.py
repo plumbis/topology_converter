@@ -471,9 +471,9 @@ class Inventory(object):
 
     # pylint: disable=R0902
     # Too many instance attributes.
-    def __init__(self, current_libvirt_port=1024, libvirt_gap=8000):
+    def __init__(self, provider="virtualbox", current_libvirt_port=1024, libvirt_gap=8000):
         self.parsed_topology = None
-        self.provider = None
+        self.provider = provider
         self.node_collection = dict()
         self.mac_set = set()
         self.provider_offset = 1
@@ -1620,7 +1620,8 @@ def main():
 
     parser = ParseGraphvizTopology()
     parsed_topology = parser.parse_topology(cli_args.topology_file)
-    inventory = Inventory(parsed_topology)
+    inventory = Inventory(provider=cli_args.provider)
+    inventory.add_parsed_topology(parsed_topology)
 
     if cli_args.create_mgmt_network:
         inventory.build_mgmt_network()

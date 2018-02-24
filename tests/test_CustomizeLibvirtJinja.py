@@ -34,7 +34,7 @@ class TestCustomizeLibvirt(object):  # pylint: disable=W0612,R0903
         """
         node = tc.NetworkNode(hostname="server01", function="unknown", memory="768",
                               other_attributes={"pxehost": "True"})
-        inventory = tc.Inventory()
+        inventory = tc.Inventory(provider="libvirt")
         inventory.add_node(node)
 
         jinja_variables = tc.get_vagrantfile_variables(inventory, self.cli)
@@ -52,7 +52,7 @@ class TestCustomizeLibvirt(object):  # pylint: disable=W0612,R0903
         """Test generating the customize_libvirt jinja template for a non-pxe host
         """
         node = tc.NetworkNode(hostname="server01", function="host", memory="768")
-        inventory = tc.Inventory()
+        inventory = tc.Inventory(provider="libvirt")
         inventory.add_node(node)
 
         jinja_variables = tc.get_vagrantfile_variables(inventory, self.cli)
@@ -70,7 +70,7 @@ class TestCustomizeLibvirt(object):  # pylint: disable=W0612,R0903
         """
         node = tc.NetworkNode(hostname="server01", function="host", memory="768",
                               other_attributes={"pxehost": "True"})
-        inventory = tc.Inventory()
+        inventory = tc.Inventory(provider="libvirt")
         inventory.add_node(node)
 
         jinja_variables = tc.get_vagrantfile_variables(inventory, self.cli)
@@ -89,7 +89,7 @@ class TestCustomizeLibvirt(object):  # pylint: disable=W0612,R0903
         """Test generating the customize_libvirt jinja template when it's not a host
         """
         node = tc.NetworkNode(hostname="leaf01", function="leaf", memory="768")
-        inventory = tc.Inventory()
+        inventory = tc.Inventory(provider="libvirt")
         inventory.add_node(node)
 
         jinja_variables = tc.get_vagrantfile_variables(inventory, self.cli)

@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-"""Test suite for validating the customize_vbox.j2 template
+"""Test suite for validating the interface_remap.j2 template
 """
 # pylint: disable=C0103
 import jinja2
 import topology_converter as tc
 
-class TestCustomizeVbox(object):  # pylint: disable=W0612,R0903
-    """Test suite for validating the output of the customize_vbox jinja template
+class TestInterfaceRemapJinja(object):  # pylint: disable=W0612,R0903
+    """Test suite for validating the output of the interface_remap jinja template
     """
     # pylint: disable=W0201
     def setup(self):
         """Initalize with the Jinja2 environmental settings.
         This is similar to the code in tc.render_vagrantfile()
-        Because /templates/Vagrantfile/customize_libvirt.j2 expects an argument "node"
+        Because /templates/Vagrantfile/interface_remap.j2 expects an argument "node"
         we need to recreate the Jinja settings and pass a "node".
         """
         self.cli = tc.parse_arguments().parse_args(["tests/simple.dot", "-p", "libvirt", "-t",

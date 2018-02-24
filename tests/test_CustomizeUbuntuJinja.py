@@ -12,7 +12,7 @@ class TestCustomizeUbuntu(object):  # pylint: disable=W0612,R0903
     def setup(self):
         """Initalize with the Jinja2 environmental settings.
         This is similar to the code in tc.render_vagrantfile()
-        Because /templates/Vagrantfile/customize_libvirt.j2 expects an argument "node"
+        Because /templates/Vagrantfile/customize_ubuntu.j2 expects an argument "node"
         we need to recreate the Jinja settings and pass a "node".
         """
         self.cli = tc.parse_arguments().parse_args(["tests/simple.dot", "-p", "virtualbox", "-t",
@@ -33,7 +33,7 @@ class TestCustomizeUbuntu(object):  # pylint: disable=W0612,R0903
         """Test generating the customize_libvirt jinja template for a pxe node
         """
         node = tc.NetworkNode(hostname="server01", function="host")
-        inventory = tc.Inventory()
+        inventory = tc.Inventory(provider="libvirt")
         inventory.add_node(node)
 
         jinja_variables = tc.get_vagrantfile_variables(inventory, self.cli)

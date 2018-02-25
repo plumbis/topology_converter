@@ -28,17 +28,17 @@ VERBOSE = False
 # Overall error message styling needs to be improved, ignoring until that happens.
 
 
-class Styles(object):  # pylint: disable=R0903
-    """Defines the terminal text colors for messages
-    """
-    HEADER = ''
-    BLUE = ''
-    GREEN = '\033[92m'
-    WARNING = ''
-    FAIL = ''
-    BOLD = ''
-    UNDERLINE = '\033[4m'
-    ENDC = '\033[0m'
+# class Styles(object):  # pylint: disable=R0903
+#     """Defines the terminal text colors for messages
+#     """
+#     HEADER = ''
+#     BLUE = ''
+#     GREEN = '\033[92m'
+#     WARNING = ''
+#     FAIL = ''
+#     BOLD = ''
+#     UNDERLINE = '\033[4m'
+#     ENDC = '\033[0m'
 
 
 class NetworkNode(object):
@@ -58,7 +58,6 @@ class NetworkNode(object):
         vm_os: the OS the node will use
         os_version: the version of OS to use
         memory: the amount of memory for the node
-        tunnel_ip: if using libvirt, the tunnel IP that libvirt is to use
         other_attributes: a catch all for any other node specific attributes
     """
 
@@ -68,8 +67,8 @@ class NetworkNode(object):
     # R0915: Too many statements
     # pylint: disable=R0902,R0913,R0912,R0915
     def __init__(self, hostname, function, vm_os=None, memory=None,
-                 config=None, os_version=None, tunnel_ip="127.0.0.1",
-                 other_attributes=None):
+                 config=None, os_version=None,
+                 other_attributes=None, libvirt_local_ip="127.0.0.1"):
 
         # define default parameters for known functions.
         # all will be overridden by any provided attributes.
@@ -118,6 +117,7 @@ class NetworkNode(object):
         self.vagrant_user = "vagrant"
         self.legacy = False
         self.vagrant_interface = "vagrant"
+        self.libvirt_local_ip = libvirt_local_ip
 
         if VERBOSE:  # pragma: no cover
             print "Building NetworkNode " + self.hostname + ". Function set as " + self.function
@@ -222,7 +222,6 @@ class NetworkNode(object):
         self.vm_os = vm_os
         self.memory = memory
         self.config = config
-        self.tunnel_ip = tunnel_ip
         self.interfaces = {}
         self.os_version = os_version
         self.has_pxe_interface = False
@@ -279,34 +278,22 @@ class NetworkNode(object):
         # While a hostname may not contain other characters, such as the underscore character (_)
 
         if len(hostname.strip()) <= 0:
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: Node name is blank" + Styles.ENDC)
-
-            return False
+            print_error("Node name is blank")
 
         # Hostname can only start with a letter or number
         if not re.compile('[A-Za-z0-9]').match(hostname[0]):
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: Node name can only start with letters or numbers " +
-                  "'%s' is not valid!\n" % hostname + Styles.ENDC)
-
-            return False
+            print_error("Node name can only start with letters or numbers "\
+                        + hostname + " is not valid!")
 
         # Hostname can not end with a dash
         if not re.compile('[A-Za-z0-9]').match(hostname[-1]):
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: Node name can only end with letters or numbers " +
-                  "'%s' is not valid!\n" % hostname + Styles.ENDC)
-
-            return False
+            print_error("Node name can only end with letters or numbers "\
+                        + hostname + " is not valid!")
 
         # Hostname can only contain A-Z, 0-9 and "-"
         if not re.compile('^[A-Za-z0-9\-]+$').match(hostname):  # pylint: disable=W1401
-            print(Styles.FAIL + Styles.BOLD +
-                  " ### ERROR: Node name can only contain letters numbers and dash(-) " +
-                  "'%s' is not valid!\n" % hostname + Styles.ENDC)
-
-            return False
+            print_error("Node name can only contain letters numbers and dash(-) "\
+                        + hostname + " is not valid!")
 
         return True
 
@@ -379,7 +366,7 @@ class NetworkInterface(object):
         self.pxe_priority = 0
         self.remote_hostname = None
         self.remote_interface = None
-        self.remote_ip = None
+        self.libvirt_remote_ip = None
 
     def remove_interface_slash(self, interface_name):
         """Remove a / character from an interface name and
@@ -466,8 +453,6 @@ class Inventory(object):
 
     The Inventory object is the final datastructure representing the dot file.
     """
-
-    # TODO: Add support for displaying total inventory memory usage pylint: disable=W0511
 
     # pylint: disable=R0902
     # Too many instance attributes.
@@ -600,6 +585,9 @@ class Inventory(object):
                         print "Interface " + side.interface_name + " on " + side.hostname\
                               + " assigned MAC " + side.mac
 
+        left_node = self.get_node_by_name(network_edge.left_side.hostname)
+        right_node = self.get_node_by_name(network_edge.right_side.hostname)
+
         # Build the network links for virtualbox
         if self.provider == "virtualbox":
             network_edge.left_side.network = "network" + \
@@ -623,13 +611,13 @@ class Inventory(object):
                             "Read the help options to fix.\n\n")
 
             network_edge.left_side.local_port = str(self.current_libvirt_port)
-            network_edge.right_side.remote_port = str(
-                self.current_libvirt_port)
-
             network_edge.left_side.remote_port = str(
                 self.current_libvirt_port + self.libvirt_gap)
+
             network_edge.right_side.local_port = str(
                 self.current_libvirt_port + self.libvirt_gap)
+            network_edge.right_side.remote_port = str(
+                self.current_libvirt_port)
 
             if VERBOSE:  # pragma: no cover
                 print network_edge.left_side.hostname + ":" + network_edge.left_side.interface_name\
@@ -642,8 +630,8 @@ class Inventory(object):
 
             self.current_libvirt_port += 1
 
-        left_node = self.get_node_by_name(network_edge.left_side.hostname)
-        right_node = self.get_node_by_name(network_edge.right_side.hostname)
+            network_edge.left_side.libvirt_remote_ip = right_node.libvirt_local_ip
+            network_edge.right_side.libvirt_remote_ip = left_node.libvirt_local_ip
 
         left_node.add_interface(network_edge.left_side)
         right_node.add_interface(network_edge.right_side)
@@ -1034,6 +1022,7 @@ class ParseGraphvizTopology(object):
         config = None
         other_attributes = {}
         pxehost = False
+        libvirt_ip = "127.0.0.1"
 
         for attribute_key in graphviz_attributes.keys():
             if attribute_key == "os":
@@ -1062,12 +1051,17 @@ class ParseGraphvizTopology(object):
             if attribute_key == "pxehost":
                 pxehost = True
 
+            if attribute_key == "libvirt_ip":
+                libvirt_ip = graphviz_attributes["libvirt_ip"].replace(
+                    "\"", "").lower()
+
         # Verify that they provided an OS for devices that aren't pxehost
         if vm_os is None and not pxehost:
             print_error("OS not provided for " + hostname)
 
         return NetworkNode(hostname=hostname, function=function, vm_os=vm_os, memory=memory,
-                           config=config, os_version=os_version, other_attributes=other_attributes)
+                           config=config, os_version=os_version, other_attributes=other_attributes,
+                           libvirt_local_ip=libvirt_ip)
 
 
 def parse_arguments():
@@ -1181,6 +1175,7 @@ def format_mac(mac_address):
     and return a mac formatted as 00:a2:23:45:fe:ff:00:12
     """
     return ':'.join(map(''.join, zip(*[iter(mac_address)] * 2)))
+
 
 def get_plural(input_string):
     """ Adds an "e" to English words that need to end in '-es'

@@ -37,7 +37,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
         assert node.os_version is None
         assert node.memory == "768"
         assert node.config is None
-        assert node.tunnel_ip == "127.0.0.1"
+        assert node.libvirt_local_ip == "127.0.0.1"
         assert not node.playbook
         assert not node.pxehost
         assert node.remap
@@ -56,7 +56,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
             os_version="3.5.1",
             memory="768",
             config="./helper_scripts/oob_switch_config.sh",
-            tunnel_ip="127.0.0.1",
+            libvirt_local_ip="127.0.0.1",
             other_attributes={
                 "playbook":"scripts/ansible_playbook.yml",
                 "pxehost":"True",
@@ -74,7 +74,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
         assert node.os_version == "3.5.1"
         assert node.memory == "768"
         assert node.config == "./helper_scripts/oob_switch_config.sh"
-        assert node.tunnel_ip == "127.0.0.1"
+        assert node.libvirt_local_ip == "127.0.0.1"
         assert node.playbook == "scripts/ansible_playbook.yml"
         assert node.pxehost
         assert not node.remap
@@ -91,6 +91,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
             assert self.node.check_hostname(hostname) is True
 
 
+    @raises(SystemExit)
     def test_check_hostname_invalid(self):
         """Test invalid hostnames are rejected and returns False
         """

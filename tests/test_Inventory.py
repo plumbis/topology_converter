@@ -322,7 +322,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf01"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf01"].memory == "768"
         assert self.inventory.node_collection["leaf01"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf01"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf01"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf01"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf01"].interfaces) == 2
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].hostname == "leaf01"
@@ -338,7 +338,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf02"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf02"].memory == "768"
         assert self.inventory.node_collection["leaf02"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf02"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf02"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf02"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf02"].interfaces) == 2
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].hostname == "leaf02"
@@ -351,7 +351,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf03"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf03"].memory == "768"
         assert self.inventory.node_collection["leaf03"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf03"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf03"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf03"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf03"].interfaces) == 2
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].hostname == "leaf03"
@@ -364,7 +364,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf04"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf04"].memory == "768"
         assert self.inventory.node_collection["leaf04"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf04"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf04"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf04"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf04"].interfaces) == 1
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].hostname == "leaf04"
@@ -396,7 +396,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf01"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf01"].memory == "768"
         assert self.inventory.node_collection["leaf01"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf01"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf01"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf01"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf01"].interfaces) == 2
         assert self.inventory.node_collection["leaf01"].interfaces["swp51"].hostname == "leaf01"
@@ -421,7 +421,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf02"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf02"].memory == "768"
         assert self.inventory.node_collection["leaf02"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf02"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf02"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf02"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf02"].interfaces) == 2
         assert self.inventory.node_collection["leaf02"].interfaces["swp51"].hostname == "leaf02"
@@ -438,7 +438,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf03"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf03"].memory == "768"
         assert self.inventory.node_collection["leaf03"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf03"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf03"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf03"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf03"].interfaces) == 2
         assert self.inventory.node_collection["leaf03"].interfaces["swp51"].hostname == "leaf03"
@@ -455,7 +455,7 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         assert self.inventory.node_collection["leaf04"].vm_os == "CumulusCommunity/cumulus-vx"
         assert self.inventory.node_collection["leaf04"].memory == "768"
         assert self.inventory.node_collection["leaf04"].os_version == "3.4.3"
-        assert self.inventory.node_collection["leaf04"].tunnel_ip == "127.0.0.1"
+        assert self.inventory.node_collection["leaf04"].libvirt_local_ip == "127.0.0.1"
         assert self.inventory.node_collection["leaf04"].other_attributes == {}
         assert len(self.inventory.node_collection["leaf04"].interfaces) == 1
         assert self.inventory.node_collection["leaf04"].interfaces["swp49"].hostname == "leaf04"

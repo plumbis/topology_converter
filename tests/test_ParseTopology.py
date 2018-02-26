@@ -586,3 +586,19 @@ class TestParseTopology(object):
                 assert node.os_version == "1.0.4"
                 assert node.vagrant_interface == "eth0"
                 assert node.vm_os == "CumulusCommunity/vx_oob_server"
+
+    def test_parse_multihypervisor_topology_virtualbox(self):
+        """Test parsing the multihypervisor topology when libvirt is the provider
+        """
+        parsed_topo = self.topology_object.parse_topology(
+            "./tests/dot_files/multihypervisor.dot")
+        inventory = tc.Inventory(provider="libvirt")
+        inventory.add_parsed_topology(parsed_topo)
+
+        leaf01 = inventory.get_node_by_name("leaf01")
+        leaf02 = inventory.get_node_by_name("leaf02")
+
+        assert leaf01.libvirt_local_ip == "192.168.1.13"
+        assert leaf02.libvirt_local_ip == "192.168.1.14"
+        assert leaf01.get_interface("swp51").libvirt_remote_ip == "192.168.1.14"
+        assert leaf02.get_interface("swp1").libvirt_remote_ip == "192.168.1.13"

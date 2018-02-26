@@ -1,0 +1,7 @@
+graph vx {
+ "leaf01" [function="leaf" os="CumulusCommunity/cumulus-vx" version="3.4.3" memory="768" config="./helper_scripts/config_switch.sh" libvirt_ip="192.168.1.13" ]
+ "leaf02" [function="leaf" os="CumulusCommunity/cumulus-vx" version="3.4.3" memory="768" config="./helper_scripts/config_switch.sh" libvirt_ip="192.168.1.14" ]
+ 
+ "leaf01":"swp51" -- "leaf02":"swp1"
+
+}

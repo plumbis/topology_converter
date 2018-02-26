@@ -1,5 +1,5 @@
 {# Additional configuration fo rthe oob-mgmt-server #}
-#Copy over DHCP files and MGMT Network Files
+# Copy over DHCP files and MGMT Network Files
 device.vm.provision "file", source: "./auto_mgmt_network/dhcpd.conf", destination: "~/dhcpd.conf"
 device.vm.provision "file", source: "./auto_mgmt_network/dhcpd.hosts", destination: "~/dhcpd.hosts"
 device.vm.provision "file", source: "./auto_mgmt_network/hosts", destination: "~/hosts"

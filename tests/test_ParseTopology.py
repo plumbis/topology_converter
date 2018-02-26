@@ -7,7 +7,7 @@ from nose.tools import raises
 import pydotplus as dot
 import topology_converter as tc
 
-# pylint: disable=W0232
+# pylint: disable=W0232, R0904
 class TestParseTopology(object):
     """Class to test ParseTopology
     """

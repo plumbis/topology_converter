@@ -395,7 +395,7 @@ class TestParseTopology(object):
             elif node.hostname == "pxehost":
                 assert node.hostname == "pxehost"
                 assert node.function == "host"
-                assert node.vm_os is None
+                assert node.vm_os == "yk0/ubuntu-xenial"
                 assert node.memory == "512"
                 assert node.config == "./helper_scripts/pxe_config.sh"
                 assert node.pxehost is True

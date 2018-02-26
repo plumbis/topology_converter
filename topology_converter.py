@@ -93,7 +93,7 @@ class NetworkNode(object):
                 "config": "./helper_scripts/extra_server_config.sh"
             },
             "pxehost": {
-                "os": "None",
+                "os": "yk0/ubuntu-xenial",
                 "memory": "512",
                 "config": "./helper_scripts/extra_server_config.sh"
             }
@@ -144,7 +144,7 @@ class NetworkNode(object):
                     + ". Default OS assignment will be skipped"
 
         if self.function in defaults:
-            if vm_os is None and not self.pxehost:
+            if vm_os is None:
                 vm_os = defaults[function]["os"]
                 if VERBOSE:  # pragma: no cover
                     print "OS not found, using default of : " + vm_os

@@ -160,7 +160,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
         """
         node = tc.NetworkNode("server01", "pxehost")
 
-        assert node.vm_os == "None"
+        assert node.vm_os == "yk0/ubuntu-xenial"
         assert node.memory == "512"
         assert node.config == "./helper_scripts/extra_server_config.sh"
 

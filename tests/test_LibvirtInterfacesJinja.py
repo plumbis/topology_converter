@@ -42,15 +42,16 @@ class TestLibvirtInterfaces(object):  # pylint: disable=W0612,R0903
         jinja_variables["node"] = inventory.get_node_by_name("leaf01")
         jinja_variables["interface"] = inventory.get_node_by_name("leaf01").interfaces["eth0"]
         expected_result = []
-        expected_result.append("device.vm.network \"private_network\",")
-        expected_result.append("    :mac => 'a0:00:00:00:00:11',")
-        expected_result.append("    :libvirt__tunnel_type => 'udp',")
-        expected_result.append("    :libvirt__tunnel_local_ip => '127.0.0.1',")
-        expected_result.append("    :libvirt__tunnel_local_port => '1043',")
-        expected_result.append("    :libvirt__tunnel_ip => '127.0.0.1',")
-        expected_result.append("    :libvirt__tunnel_port => '9043',")
-        expected_result.append("    :libvirt__iface_name => 'eth0',")
-        expected_result.append("    auto_config: false")
+        expected_result.append("")
+        expected_result.append("        device.vm.network \"private_network\",")
+        expected_result.append("        :mac => 'a0:00:00:00:00:11',")
+        expected_result.append("        :libvirt__tunnel_type => 'udp',")
+        expected_result.append("        :libvirt__tunnel_local_ip => '127.0.0.1',")
+        expected_result.append("        :libvirt__tunnel_local_port => '1043',")
+        expected_result.append("        :libvirt__tunnel_ip => '127.0.0.1',")
+        expected_result.append("        :libvirt__tunnel_port => '9043',")
+        expected_result.append("        :libvirt__iface_name => 'eth0',")
+        expected_result.append("        auto_config: false")
 
         result = self.template.render(jinja_variables)
 

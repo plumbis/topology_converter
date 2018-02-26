@@ -1,0 +1,59 @@
+
+##### DEFINE VM for pxehost #####
+  config.vm.define "pxehost" do |device|
+    
+    device.ssh.insert_key = false
+    # NO BOX USED FOR PXE DEVICE WITH LIBVIRT
+
+    device.vm.provider "libvirt" do |v|
+        v.name = "#{simid}_pxehost"      
+        v.memory = 512    
+        v.storage :file, :size => '100G', :type => 'qcow2', :bus => 'sata', :device => 'sda'
+        v.boot 'hd'
+        v.boot 'network'
+        v.nic_model_type = 'e1000'
+
+    end
+
+    # NETWORK INTERFACES
+    # link for eth0 --> server1:eth0
+        device.vm.network "private_network",
+        :mac => '44:38:39:00:00:01',
+        :libvirt__tunnel_type => 'udp',
+        :libvirt__tunnel_local_ip => '127.0.0.1',
+        :libvirt__tunnel_local_port => '9024',
+        :libvirt__tunnel_ip => '127.0.0.1',
+        :libvirt__tunnel_port => '1024',
+        :libvirt__iface_name => 'eth0',
+        auto_config: false 
+
+    # Fixes "stdin: is not a tty" and "mesg: ttyname failed : Inappropriate ioctl for device"  messages --> https://github.com/mitchellh/vagrant/issues/1673
+    device.vm.provision :shell , inline: "(sudo grep -q 'mesg n' /root/.profile 2>/dev/null && sudo sed -i '/mesg n/d' /root/.profile  2>/dev/null) || true;", privileged: false
+
+    # Shorten Boot Process - Applies to Ubuntu Only - remove \"Wait for Network\"
+    device.vm.provision :shell , inline: "sed -i 's/sleep [0-9]*/sleep 1/' /etc/init/failsafe.conf 2>/dev/null || true"
+        
+    # Run the Config specified in the Node Attributes
+    device.vm.provision :shell , privileged: false, :inline => 'echo "$(whoami)" > /tmp/normal_user'
+    device.vm.provision :shell , path: "./helper_scripts/pxe_config.sh"
+    
+
+    # Install Rules for the interface re-map# NO REMAP for LIBVIRT PXE DEVICE
+
+    
+    # Ansible Playbook Configuration
+    device.vm.provision "ansible" do |ansible|
+      ansible.playbook = "./helper_scripts/fetch_udev_file.yml"
+      
+    # ANSIBLE GROUPS CONFIGURATION
+    ansible.groups = {
+      "hosts" => ["pxehost","server1",],
+      "network:children" => ["hosts",]
+    }
+    end
+
+    # Run Any Platform Specific Code and Apply the interface Re-map
+    #   (may or may not perform a reboot depending on platform)
+    device.vm.provision :shell , :inline => $script
+
+  end

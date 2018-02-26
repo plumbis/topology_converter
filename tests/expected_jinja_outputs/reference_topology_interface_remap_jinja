@@ -1,60 +1,59 @@
 # Install Rules for the interface re-map
-
-device.vm.provision :shell , :inline => <<-delete_udev_directory
-if [ -d "/etc/udev/rules.d/70-persistent-net.rules" ]; then
-    rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null
-fi
-rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null
-delete_udev_directory
+    device.vm.provision :shell , :inline => <<-delete_udev_directory
+      if [ -d "/etc/udev/rules.d/70-persistent-net.rules" ]; then
+        rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null
+      fi
+      rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null
+    delete_udev_directory
     
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:01 --> swp50'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:01", NAME="swp50", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:53 --> swp51'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:53", NAME="swp51", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:24 --> swp52'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:24", NAME="swp52", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:10 --> swp49'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:10", NAME="swp49", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:42 --> swp48'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:42", NAME="swp48", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:14 --> swp2'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:14", NAME="swp2", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:03 --> swp1'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:03", NAME="swp1", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:41 --> swp47'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:41", NAME="swp47", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:1e --> swp46'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:1e", NAME="swp46", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:1d --> swp45'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:1d", NAME="swp45", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
-      device.vm.provision :shell , :inline => <<-udev_rule
-echo '  INFO: Adding UDEV Rule: a0:00:00:00:00:11 --> eth0'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="a0:00:00:00:00:11", NAME="eth0", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:01 --> swp50'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:01", NAME="swp50", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:53 --> swp51'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:53", NAME="swp51", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:24 --> swp52'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:24", NAME="swp52", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:10 --> swp49'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:10", NAME="swp49", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:42 --> swp48'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:42", NAME="swp48", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:14 --> swp2'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:14", NAME="swp2", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:03 --> swp1'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:03", NAME="swp1", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:41 --> swp47'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:41", NAME="swp47", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:1e --> swp46'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:1e", NAME="swp46", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:1d --> swp45'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:1d", NAME="swp45", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: a0:00:00:00:00:11 --> eth0'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="a0:00:00:00:00:11", NAME="eth0", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
 
-      device.vm.provision :shell , :inline => <<-vagrant_interface_rule
-echo '  INFO: Adding UDEV Rule: Vagrant interface = vagrant'
-echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{ifindex}=="2", NAME="vagrant", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
-echo "#### UDEV Rules (/etc/udev/rules.d/70-persistent-net.rules) ####"
-cat /etc/udev/rules.d/70-persistent-net.rules
-vagrant_interface_rule
+    device.vm.provision :shell , :inline => <<-vagrant_interface_rule
+      echo '  INFO: Adding UDEV Rule: Vagrant interface = vagrant'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{ifindex}=="2", NAME="vagrant", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+      echo "#### UDEV Rules (/etc/udev/rules.d/70-persistent-net.rules) ####"
+      cat /etc/udev/rules.d/70-persistent-net.rules
+    vagrant_interface_rule

@@ -27,9 +27,9 @@ class TestOobSwitchProvisionerJinja(object):  # pylint: disable=W0612,R0903
 
         expected_result = []
         expected_result.append("")
-        expected_result.append("# Transfer Bridge File")
-        expected_result.append("device.vm.provision \"file\", source: \"./auto_mgmt_network/bridge-untagged\", destination: \"~/bridge-untagged\"")  # pylint: disable=C0301
-        expected_result.append("")
+        expected_result.append(" ")
+        expected_result.append("    # Transfer Bridge File")
+        expected_result.append("    device.vm.provision \"file\", source: \"./auto_mgmt_network/bridge-untagged\", destination: \"~/bridge-untagged\"")  # pylint: disable=C0301
 
         print repr(result)
         print ""

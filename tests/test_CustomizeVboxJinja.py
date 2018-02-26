@@ -70,10 +70,10 @@ class TestCustomizeVbox(object):  # pylint: disable=W0612,R0903
 
         expected_result = []
         expected_result.append("")
-        expected_result.append("v.customize [\"modifyvm\", :id, '--audiocontroller', 'AC97', '--audio', 'Null']")  # pylint: disable=C0301
-        expected_result.append("vbox.customize [\"modifyvm\", :id, '--nicpromisc2', 'allow-all']")
-        expected_result.append("vbox.customize [\"modifyvm\", :id, '--nicpromisc3', 'allow-all']")
-        expected_result.append("vbox.customize [\"modifyvm\", :id, '--nictype1', 'virtio']")
+        expected_result.append("        v.customize [\"modifyvm\", :id, '--audiocontroller', 'AC97', '--audio', 'Null']")  # pylint: disable=C0301
+        expected_result.append("        vbox.customize [\"modifyvm\", :id, '--nicpromisc2', 'allow-all']")  # pylint: disable=C0301
+        expected_result.append("        vbox.customize [\"modifyvm\", :id, '--nicpromisc3', 'allow-all']")  # pylint: disable=C0301
+        expected_result.append("        vbox.customize [\"modifyvm\", :id, '--nictype1', 'virtio']")  # pylint: disable=C0301
 
         print repr(result)
         print ""
@@ -123,20 +123,20 @@ class TestCustomizeVbox(object):  # pylint: disable=W0612,R0903
         result = self.template.render(jinja_variables)
         expected_result = []
         expected_result.append("")
-        expected_result.append("v.customize [\"modifyvm\", :id, '--audiocontroller', 'AC97', '--audio', 'Null']")  # pylint: disable=C0301
-        expected_result.append("vbox.customize [\"modifyvm\", :id, '--nicpromisc2', 'allow-all']")
-        expected_result.append("vbox.customize [\"modifyvm\", :id, '--nicpromisc3', 'allow-all']")
-        expected_result.append("vbox.customize [\"modifyvm\", :id, '--nictype1', 'virtio']")
+        expected_result.append("        v.customize [\"modifyvm\", :id, '--audiocontroller', 'AC97', '--audio', 'Null']")  # pylint: disable=C0301
+        expected_result.append("        vbox.customize [\"modifyvm\", :id, '--nicpromisc2', 'allow-all']")  # pylint: disable=C0301
+        expected_result.append("        vbox.customize [\"modifyvm\", :id, '--nicpromisc3', 'allow-all']")  # pylint: disable=C0301
+        expected_result.append("        vbox.customize [\"modifyvm\", :id, '--nictype1', 'virtio']")  # pylint: disable=C0301
         expected_result.append("")
-        expected_result.append("### Setup Interfaces for PXEBOOT")
-        expected_result.append("  # Adding network as a boot option.")
-        expected_result.append("  vbox.customize [\"modifyvm\", :id, \"--boot4\", \"net\"]")
+        expected_result.append("    ### Setup Interfaces for PXEBOOT")
+        expected_result.append("      # Adding network as a boot option.")
+        expected_result.append("      vbox.customize [\"modifyvm\", :id, \"--boot4\", \"net\"]")
         expected_result.append("")
-        expected_result.append("  # Setting Vagrant interface to lowest boot preference")
-        expected_result.append("  vbox.customize [\"modifyvm\", :id, \"--nicbootprio1\", \"0\"]")
+        expected_result.append("      # Setting Vagrant interface to lowest boot preference")
+        expected_result.append("      vbox.customize [\"modifyvm\", :id, \"--nicbootprio1\", \"0\"]")  # pylint: disable=C0301
         expected_result.append("")
-        expected_result.append("  # Setting Specified interface to highest preference.")
-        expected_result.append("  vbox.customize [\"modifyvm\", :id, \"--nicbootprio2\", \"1\"]")
+        expected_result.append("      # Setting Specified interface to highest preference.")
+        expected_result.append("      vbox.customize [\"modifyvm\", :id, \"--nicbootprio2\", \"1\"]")  # pylint: disable=C0301
 
         print repr(result)
         print ""

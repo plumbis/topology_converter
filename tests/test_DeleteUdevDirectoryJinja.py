@@ -26,12 +26,12 @@ class TestDeleteUdevDirectory(object):  # pylint: disable=W0612,R0903
         result = tc.render_vagrantfile(inventory, "./templates/", self.cli)
         expected_output = []
         expected_output.append("")
-        expected_output.append("device.vm.provision :shell , :inline => <<-delete_udev_directory")
-        expected_output.append("if [ -d \"/etc/udev/rules.d/70-persistent-net.rules\" ]; then")
-        expected_output.append("    rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null")
-        expected_output.append("fi")
-        expected_output.append("rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null")
-        expected_output.append("delete_udev_directory")
+        expected_output.append("    device.vm.provision :shell , :inline => <<-delete_udev_directory")  # pylint: disable=C0301
+        expected_output.append("      if [ -d \"/etc/udev/rules.d/70-persistent-net.rules\" ]; then")  # pylint: disable=C0301
+        expected_output.append("        rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null")  # pylint: disable=C0301
+        expected_output.append("      fi")
+        expected_output.append("      rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null")  # pylint: disable=C0301
+        expected_output.append("    delete_udev_directory")
 
         print repr(result)
         print ""

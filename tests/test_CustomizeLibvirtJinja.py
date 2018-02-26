@@ -42,9 +42,10 @@ class TestCustomizeLibvirt(object):  # pylint: disable=W0612,R0903
         result = self.template.render(jinja_variables)
         expected_result = []
         expected_result.append("v.storage :file, :size => '100G', :type => 'qcow2', :bus => 'sata', :device => 'sda'")  # pylint: disable=C0301
-        expected_result.append("v.boot 'hd'")
-        expected_result.append("v.boot 'network'")
-        expected_result.append("")
+        expected_result.append("        v.boot 'hd'")
+        expected_result.append("        v.boot 'network'")
+
+        print result
 
         assert "\n".join(expected_result) == result
 
@@ -59,9 +60,10 @@ class TestCustomizeLibvirt(object):  # pylint: disable=W0612,R0903
         jinja_variables["node"] = inventory.get_node_by_name("server01")
         result = self.template.render(jinja_variables)
         expected_result = []
-        expected_result.append("v.nic_model_type = 'e1000'")
         expected_result.append("")
+        expected_result.append("        v.nic_model_type = 'e1000'")
 
+        print result
         assert "\n".join(expected_result) == result
 
     def test_customize_libvirt_host_and_pxe_node(self): # pylint: disable=R0201
@@ -78,11 +80,11 @@ class TestCustomizeLibvirt(object):  # pylint: disable=W0612,R0903
         result = self.template.render(jinja_variables)
         expected_result = []
         expected_result.append("v.storage :file, :size => '100G', :type => 'qcow2', :bus => 'sata', :device => 'sda'")  # pylint: disable=C0301
-        expected_result.append("v.boot 'hd'")
-        expected_result.append("v.boot 'network'")
-        expected_result.append("v.nic_model_type = 'e1000'")
-        expected_result.append("")
+        expected_result.append("        v.boot 'hd'")
+        expected_result.append("        v.boot 'network'")
+        expected_result.append("        v.nic_model_type = 'e1000'")
 
+        print repr(result)
         assert "\n".join(expected_result) == result
 
     def test_customize_libvirt_no_changes_node(self): # pylint: disable=R0201

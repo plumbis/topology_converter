@@ -1,0 +1,79 @@
+
+##### DEFINE VM for pxehost #####
+  config.vm.define "pxehost" do |device|
+    
+    device.ssh.insert_key = false
+    device.vm.box = "yk0/ubuntu-xenial"
+
+    device.vm.provider "virtualbox" do |v|
+        v.name = "#{simid}_pxehost"      
+        v.memory = 512
+        
+        v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
+        vbox.customize ["modifyvm", :id, '--nicpromisc2', 'allow-all']
+        vbox.customize ["modifyvm", :id, '--nictype1', 'virtio']
+
+    ### Setup Interfaces for PXEBOOT
+      # Adding network as a boot option.
+      vbox.customize ["modifyvm", :id, "--boot4", "net"]
+
+      # Setting Vagrant interface to lowest boot preference
+      vbox.customize ["modifyvm", :id, "--nicbootprio1", "0"]
+
+      # Setting Specified interface to highest preference.
+      vbox.customize ["modifyvm", :id, "--nicbootprio2", "1"]
+
+    end
+
+    # NETWORK INTERFACES
+    # link for eth0 --> server1:eth0
+    device.vm.network "private_network", virtualbox__intnet: "#{simid}_network1", auto_config: false , :mac => "443839000001" 
+
+    # Fixes "stdin: is not a tty" and "mesg: ttyname failed : Inappropriate ioctl for device"  messages --> https://github.com/mitchellh/vagrant/issues/1673
+    device.vm.provision :shell , inline: "(sudo grep -q 'mesg n' /root/.profile 2>/dev/null && sudo sed -i '/mesg n/d' /root/.profile  2>/dev/null) || true;", privileged: false
+
+    # Shorten Boot Process - Applies to Ubuntu Only - remove \"Wait for Network\"
+    device.vm.provision :shell , inline: "sed -i 's/sleep [0-9]*/sleep 1/' /etc/init/failsafe.conf 2>/dev/null || true"
+        
+    # Run the Config specified in the Node Attributes
+    device.vm.provision :shell , privileged: false, :inline => 'echo "$(whoami)" > /tmp/normal_user'
+    device.vm.provision :shell , path: "./helper_scripts/pxe_config.sh"
+    
+
+    # Install Rules for the interface re-map
+    device.vm.provision :shell , :inline => <<-delete_udev_directory
+      if [ -d "/etc/udev/rules.d/70-persistent-net.rules" ]; then
+        rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null
+      fi
+      rm -rfv /etc/udev/rules.d/70-persistent-net.rules &> /dev/null
+    delete_udev_directory
+    
+    device.vm.provision :shell , :inline => <<-udev_rule
+      echo '  INFO: Adding UDEV Rule: 44:38:39:00:00:01 --> eth0'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{address}=="44:38:39:00:00:01", NAME="eth0", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+    udev_rule
+
+    device.vm.provision :shell , :inline => <<-vagrant_interface_rule
+      echo '  INFO: Adding UDEV Rule: Vagrant interface = vagrant'
+      echo 'ACTION=="add", SUBSYSTEM=="net", ATTR{ifindex}=="2", NAME="vagrant", SUBSYSTEMS=="pci"' >> /etc/udev/rules.d/70-persistent-net.rules
+      echo "#### UDEV Rules (/etc/udev/rules.d/70-persistent-net.rules) ####"
+      cat /etc/udev/rules.d/70-persistent-net.rules
+    vagrant_interface_rule
+
+    
+    # Ansible Playbook Configuration
+    device.vm.provision "ansible" do |ansible|
+      ansible.playbook = "./helper_scripts/fetch_udev_file.yml"
+      
+    # ANSIBLE GROUPS CONFIGURATION
+    ansible.groups = {
+      "hosts" => ["pxehost","server1",],
+      "network:children" => ["hosts",]
+    }
+    end
+
+    # Run Any Platform Specific Code and Apply the interface Re-map
+    #   (may or may not perform a reboot depending on platform)
+    device.vm.provision :shell , :inline => $script
+
+  end

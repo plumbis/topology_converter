@@ -13,6 +13,7 @@ Initially written by Eric Pulvino 2015-10-19
 
 import os
 import re
+import sys
 import argparse
 import ipaddress
 import time
@@ -23,22 +24,6 @@ import jinja2
 
 VERSION = "5.0.0"
 VERBOSE = False
-
-# R0903 too few public methods
-# Overall error message styling needs to be improved, ignoring until that happens.
-
-
-# class Styles(object):  # pylint: disable=R0903
-#     """Defines the terminal text colors for messages
-#     """
-#     HEADER = ''
-#     BLUE = ''
-#     GREEN = '\033[92m'
-#     WARNING = ''
-#     FAIL = ''
-#     BOLD = ''
-#     UNDERLINE = '\033[4m'
-#     ENDC = '\033[0m'
 
 
 class NetworkNode(object):
@@ -632,6 +617,12 @@ class Inventory(object):
 
             network_edge.left_side.libvirt_remote_ip = right_node.libvirt_local_ip
             network_edge.right_side.libvirt_remote_ip = left_node.libvirt_local_ip
+
+        network_edge.left_side.remote_hostname = network_edge.right_side.hostname
+        network_edge.left_side.remote_interface = network_edge.right_side.interface_name
+
+        network_edge.right_side.remote_hostname = network_edge.left_side.hostname
+        network_edge.right_side.remote_interface = network_edge.left_side.interface_name
 
         left_node.add_interface(network_edge.left_side)
         right_node.add_interface(network_edge.right_side)
@@ -1499,7 +1490,7 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
         vagrant_template = "Vagrantfile.j2"
 
     jinja_variables = get_vagrantfile_variables(inventory, cli)
-
+    jinja_variables["arguments"] = sys.argv[1:]
     # It's required to set the jinja2 environment
     # so that the {% include %} statements within the Vagrantfile.j2
     # template knows where to look.
@@ -1594,6 +1585,15 @@ def print_blue(output_string):
     print blue_format + output_string
 
 
+def print_green(output_string):
+    green_format = "\033[92m"
+    print green_format + output_string
+
+def print_underline(output_string):
+    underline_format = "\033[4m"
+    print underline_format + output_string
+
+
 def main():
     """Main point of entry to parse a topology file,
     build an inventory and product a Vagrantfile
@@ -1630,15 +1630,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# Support very large OOB networks. Figure out how to split at 64 ports or so
-# Allow the ability to add/modify links without requiring full
-#       vagrant destroy/vagrant up. Export datastructure somehow
-# Allow a server to be added to OOB while the full OOB is generated automatically.
-# Allow selective DHCP default route
-# Allow selective mgmt VRF in ZTP
-# Change management network to /16
-# oob-mgmt-switch bridge interface needs an IP and MAC.
-#    Currently it will not be assigned in dhcpd.hosts
-#    problem is that everying expects physical interfaces/edge.
-#    May be possible with a FAKE device connected

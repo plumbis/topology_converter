@@ -27,12 +27,12 @@ class TestOobServerProvisionerJinja(object):  # pylint: disable=W0612,R0903
 
         expected_result = []
         expected_result.append("")
-        expected_result.append("# Copy over DHCP files and MGMT Network Files")
-        expected_result.append("device.vm.provision \"file\", source: \"./auto_mgmt_network/dhcpd.conf\", destination: \"~/dhcpd.conf\"")  # pylint: disable=C0301
-        expected_result.append("device.vm.provision \"file\", source: \"./auto_mgmt_network/dhcpd.hosts\", destination: \"~/dhcpd.hosts\"")  # pylint: disable=C0301
-        expected_result.append("device.vm.provision \"file\", source: \"./auto_mgmt_network/hosts\", destination: \"~/hosts\"")  # pylint: disable=C0301
-        expected_result.append("device.vm.provision \"file\", source: \"./auto_mgmt_network/ansible_hostfile\", destination: \"~/ansible_hostfile\"")  # pylint: disable=C0301
-        expected_result.append("device.vm.provision \"file\", source: \"./auto_mgmt_network/ztp_oob.sh\", destination: \"~/ztp_oob.sh\"")  # pylint: disable=C0301
+        expected_result.append("    # Copy over DHCP files and MGMT Network Files")
+        expected_result.append("    device.vm.provision \"file\", source: \"./auto_mgmt_network/dhcpd.conf\", destination: \"~/dhcpd.conf\"")  # pylint: disable=C0301
+        expected_result.append("    device.vm.provision \"file\", source: \"./auto_mgmt_network/dhcpd.hosts\", destination: \"~/dhcpd.hosts\"")  # pylint: disable=C0301
+        expected_result.append("    device.vm.provision \"file\", source: \"./auto_mgmt_network/hosts\", destination: \"~/hosts\"")  # pylint: disable=C0301
+        expected_result.append("    device.vm.provision \"file\", source: \"./auto_mgmt_network/ansible_hostfile\", destination: \"~/ansible_hostfile\"")  # pylint: disable=C0301
+        expected_result.append("    device.vm.provision \"file\", source: \"./auto_mgmt_network/ztp_oob.sh\", destination: \"~/ztp_oob.sh\"")  # pylint: disable=C0301
         expected_result.append("")
 
         print repr(result)

@@ -102,7 +102,6 @@ class TestInterfaceRemapJinja(object):  # pylint: disable=W0612,R0903
         jinja_variables["node"] = inventory.get_node_by_name("host01")
         result = self.template.render(jinja_variables)
 
-        assert len(result.splitlines()) == 2
         assert "# NO REMAP for LIBVIRT PXE DEVICE" in result
 
 

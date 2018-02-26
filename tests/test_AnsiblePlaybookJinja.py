@@ -46,10 +46,13 @@ class TestAnsiblePlaybookJinja(object):  # pylint: disable=W0612,R0903
         result = self.template.render(jinja_variables)
 
         expected_output = []
-        expected_output.append("    # Ansible Playbook Configuration")
+        expected_output.append("# Ansible Playbook Configuration")
         expected_output.append("    device.vm.provision \"ansible\" do |ansible|")
         expected_output.append("      ansible.playbook = \"main.yml\"")
         expected_output.append("      " + open(include_result).read())
         expected_output.append("    end")
+        expected_output.append("")
 
+        print repr(result)
+        print repr("\n".join(expected_output))
         assert result == "\n".join(expected_output)

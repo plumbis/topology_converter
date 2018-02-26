@@ -40,10 +40,10 @@ class TestCustomizeUbuntu(object):  # pylint: disable=W0612,R0903
         jinja_variables["node"] = inventory.get_node_by_name("server01")
         result = self.template.render(jinja_variables)
         expected_result = []
-        expected_result.append("")
-        expected_result.append("    # Shorten Boot Process - Applies to Ubuntu Only - remove \\\"Wait for Network\\\"")  # pylint: disable=C0301
+        expected_result.append("# Shorten Boot Process - Applies to Ubuntu Only - remove \\\"Wait for Network\\\"")  # pylint: disable=C0301
         expected_result.append("    device.vm.provision :shell , inline: \"sed -i 's/sleep [0-9]*/sleep 1/' /etc/init/failsafe.conf 2>/dev/null || true\"")  # pylint: disable=C0301
-        expected_result.append("")
+
+        print repr(result)
         assert "\n".join(expected_result) == result
 
     def test_customize_ubuntu_other_os(self): # pylint: disable=R0201

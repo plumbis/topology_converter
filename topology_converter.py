@@ -677,7 +677,7 @@ class Inventory(object):
     # R0912 - too many branches
     # R0915 - too many statements
     # R0914 - too many local variables
-    def build_mgmt_network(self):  # pylint: disable=R0912,R0915, R0914
+    def build_mgmt_network(self, create_mgmt_device=False):  # pylint: disable=R0912,R0915, R0914
         """Build a management network and add it to the inventory.
         This will create an oob-mgmt-switch and
         oob-mgmt-server NetworkNode if they do not exist and will
@@ -764,17 +764,19 @@ class Inventory(object):
                 print "OOB-Switch dynamically assigned IP " + self.oob_switch.mgmt_ip
 
         # Connect the oob server and switch
-        mgmt_port = "swp" + str(mgmt_switch_port_count)
-        self.add_edge(NetworkEdge(NetworkInterface(hostname=self.oob_server.hostname,
-                                                   interface_name="eth1",
-                                                   ip=str(self.oob_server.mgmt_ip)),
-                                  NetworkInterface(hostname=self.oob_switch.hostname,
-                                                   interface_name=mgmt_port)))
+        # But skip the connection if we are only creating the management device
+        if not create_mgmt_device:
+            mgmt_port = "swp" + str(mgmt_switch_port_count)
+            self.add_edge(NetworkEdge(NetworkInterface(hostname=self.oob_server.hostname,
+                                                       interface_name="eth1",
+                                                       ip=str(self.oob_server.mgmt_ip)),
+                                      NetworkInterface(hostname=self.oob_switch.hostname,
+                                                       interface_name=mgmt_port)))
 
-        if VERBOSE:  # pragma: no cover
-            print "Management Link Added: "
-            print self.oob_server.hostname + ":eth1 -- " + self.oob_switch.hostname + mgmt_port
-            print ""
+            if VERBOSE:  # pragma: no cover
+                print "Management Link Added: "
+                print self.oob_server.hostname + ":eth1 -- " + self.oob_switch.hostname + mgmt_port
+                print ""
 
         for hostname, node_object in self.node_collection.iteritems():
             if hostname == "oob-mgmt-server" or hostname == "oob-mgmt-switch":
@@ -794,11 +796,12 @@ class Inventory(object):
                                 + str(node_object.mgmt_ip))
 
                 mgmt_port = "swp" + str(mgmt_switch_port_count)
-                self.add_edge(NetworkEdge(
-                    NetworkInterface(hostname=hostname, interface_name="eth0",
-                                     ip=str(node_object.mgmt_ip)),
-                    NetworkInterface(hostname="oob-mgmt-switch",
-                                     interface_name=mgmt_port)))
+                if not create_mgmt_device:
+                    self.add_edge(NetworkEdge(
+                        NetworkInterface(hostname=hostname, interface_name="eth0",
+                                         ip=str(node_object.mgmt_ip)),
+                        NetworkInterface(hostname="oob-mgmt-switch",
+                                         interface_name=mgmt_port)))
 
             else:
 
@@ -820,12 +823,12 @@ class Inventory(object):
                         self.oob_server.mgmt_ip.network[current_lease])
                     candidate_ip_object = ipaddress.ip_interface(
                         unicode(candidate_lease + oob_server_mask))
-
-                self.add_edge(NetworkEdge(
-                    NetworkInterface(hostname=hostname, interface_name="eth0",
-                                     ip=str(candidate_ip_object)),
-                    NetworkInterface(hostname="oob-mgmt-switch",
-                                     interface_name="swp" + str(mgmt_switch_port_count))))
+                if not create_mgmt_device:
+                    self.add_edge(NetworkEdge(
+                        NetworkInterface(hostname=hostname, interface_name="eth0",
+                                         ip=str(candidate_ip_object)),
+                        NetworkInterface(hostname="oob-mgmt-switch",
+                                         interface_name="swp" + str(mgmt_switch_port_count))))
                 node_object.mgmt_ip = candidate_ip_object
                 self.mgmt_ips.add(candidate_ip_object)
                 current_lease += 1
@@ -1089,9 +1092,9 @@ def parse_arguments():
 
     parser.add_argument("-c", "--create-mgmt-network", action="store_true",
                         help="When specified, a mgmt switch and server will be created. \
-                        A /24 is assumed for the mgmt network. mgmt_ip=X.X.X.X will be \
-                        read from each device to create a Static DHCP mapping for \
-                        the oob-mgmt-server.")
+                        The default assumes a /24 subnet. If the mgmt_ip is set on the \
+                        OOB server, it will be used to define the DHCP pool for the network.\
+                        Any node specific mgmt_ip settings will override the OOB server pool.")
 
     parser.add_argument("-cco", "--create-mgmt-configs-only", action="store_true",
                         help="Calling this option does NOT regenerate the Vagrantfile \
@@ -1150,6 +1153,11 @@ def parse_arguments():
 
     parser.add_argument("--vagrantfile", default="Vagrantfile",
                         help="Define a customer file to output instead of 'Vagrantfile'")
+
+    parser.add_argument("-m", "--memory", default="Vagrantfile",
+                        help="Display the estimated topology memory requirements and exits \
+                         This supports the -c option and will include the management \
+                         network in the memory output")
 
     return parser
 
@@ -1490,7 +1498,8 @@ def get_vagrantfile_variables(inventory, cli):  # pylint: disable=R0912
     jinja_variables["nodes"] = node_dict
     return jinja_variables
 
-
+# No Vagrantfile test cases. Most functions are covered by template tests
+# But coverage for complete Vagrantfile would be a nice addition
 def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     """Renders a complete Vagrantfile from a jinja2 template
     """
@@ -1530,37 +1539,6 @@ def write_file(location, contents):
     except:  # pylint: disable=W0702
         print_error("ERROR: Could not write file " + location)
 
-
-# def generate_management_devices(inventory, cli_args):
-#     """Generate a management network
-#     """
-#     mgmt_template_dir = "./templates/auto_mgmt_network/"
-#     mgmt_output = "./helper_scripts/auto-mgmt_network/"
-
-#     # Verify that the directory for the templates exists
-#     if not os.path.isdir(mgmt_template_dir):
-#         print(Styles.FAIL + Styles.BOLD +
-#               "ERROR: " + mgmt_template_dir + " does not exist. " \
-#               "Cannot populate templates!" +
-#               Styles.ENDC)
-#         exit(1)
-
-#     # Verify the directory to write to exists
-#     if not os.path.isdir(mgmt_output):
-#         try:
-#             os.mkdir(mgmt_output)
-#         except:  #pylint: disable=W0702
-#             print(Styles.FAIL + Styles.BOLD +
-#                   "ERROR: Could not create output directory " +
-#                   mgmt_output + "for mgmt template renders!" +
-#                   Styles.ENDC)
-#             exit(1)
-
-#     # Get the contents to put in the Ansible hosts file
-#     hostfile_contents = render_ansible_hostfile(inventory, cli_args, mgmt_template_dir)
-#     ansible_hosts_location = os.path.join(mgmt_output, "ansible.hosts")
-
-#     write_file(ansible_hosts_location, hostfile_contents)
 
 def print_warning(warning_string):
     """Format and print warning messages
@@ -1603,6 +1581,7 @@ def print_green(output_string):
     green_format = "\033[92m"
     print green_format + output_string
 
+
 def print_underline(output_string):
     """Print a string with an underline
     """
@@ -1637,9 +1616,40 @@ def main():
     if cli_args.create_mgmt_network:
         inventory.build_mgmt_network()
 
+    if cli_args.create_management_device:
+        inventory.build_mgmt_network(create_mgmt_device=True)
+
     if cli_args.memory:
         print inventory.calculate_memory()
         exit(0)
+
+    if cli_args.create_mgmt_network or cli_args.create_management_device:
+        write_file("./helper_scripts/auto_mgmt_network",
+                   render_ansible_hostfile(inventory, cli_args.topology_file,
+                                           "./templates/auto_mgmt_network/"))
+
+        write_file("./helper_scripts/auto_mgmt_network",
+                   render_dhcpd_conf(inventory, cli_args.topology_file,
+                                     "./templates/auto_mgmt_network/"))
+
+        write_file("./helper_scripts/auto_mgmt_network",
+                   render_dhcpd_hosts(inventory, cli_args.topology_file,
+                                      "./templates/auto_mgmt_network/"))
+
+        write_file("./helper_scripts/auto_mgmt_network",
+                   render_hosts_file(inventory, cli_args.topology_file,
+                                     "./templates/auto_mgmt_network/"))
+
+        write_file("./helper_scripts/auto_mgmt_network",
+                   render_oob_server_sh(inventory, cli_args.topology_file,
+                                        "./templates/auto_mgmt_network/"))
+
+        write_file("./helper_scripts/auto_mgmt_network",
+                   render_ztp_oob(inventory, cli_args.topology_file,
+                                  "./templates/auto_mgmt_network/"))
+
+    write_file("./helper_scripts/auto_mgmt_network",
+               render_vagrantfile(inventory, "./templates/", cli_args))
 
     exit(0)
 

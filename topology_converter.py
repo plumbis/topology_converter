@@ -1586,10 +1586,14 @@ def print_blue(output_string):
 
 
 def print_green(output_string):
+    """Print a string in green
+    """
     green_format = "\033[92m"
     print green_format + output_string
 
 def print_underline(output_string):
+    """Print a string with an underline
+    """
     underline_format = "\033[4m"
     print underline_format + output_string
 

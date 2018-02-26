@@ -38,12 +38,26 @@ class NetworkNode(object):
     or error checking can be managed through other_attributes.
 
     Attributes:
-        hostname: the name of the node
-        function: the function in network of the node (e.g., leaf, spine, oob-server)
-        vm_os: the OS the node will use
-        os_version: the version of OS to use
-        memory: the amount of memory for the node
-        other_attributes: a catch all for any other node specific attributes
+        config - The config file the node will use
+        function - Function of the device
+        has_pxe_interface - Bool. Does this device have a PXE interface?
+        hostname - The hostname of the device
+        interfaces - A dict of {"interface name": NetworkInterface()} for
+            all interfaces associated with this node
+        legacy - The legacy flag to support older Vagrant box images
+        libvirt_local_ip - The local Tunnel IP for libvirt. Ignored for vbox providers
+        memory - The amount of memory of the node
+        mgmt_ip - The management (eth0) IP of the device. Used for management network DHCP
+        os_version - An OS version to use for the device
+        other_attributes - Dict of attributes
+        playbook - Ansible playbook to run as a Vagrant provisioner
+        ports - The ports the device will have, even without connections. command line option
+        pxehost - Bool, is this a pxehost? Related to, but not the same as has_pxe_interface
+        remap - Bool, is the Vagrant remap option used?
+        ssh_port - A non-standard Vagrant SSH port
+        vagrant_interface - A non-standard Vagrant interface name
+        vagrant_user - A non-standard Vagrant username
+        vm_os - Box image name
     """
 
     # R0902: Too many instance attributes.
@@ -87,8 +101,6 @@ class NetworkNode(object):
         # ensure the hostname is valid
         if self.check_hostname(hostname):
             self.hostname = hostname
-        else:
-            exit(1)
 
         self.function = function
 

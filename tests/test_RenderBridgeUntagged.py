@@ -5,6 +5,7 @@
 # R0201 - Method could be a function
 
 # pylint: disable=C0103, R0201
+from nose.tools import raises
 import topology_converter as tc
 
 class TestRenderBridgeUntagged(object):  # pylint: disable=W0612,R0903
@@ -44,3 +45,14 @@ class TestRenderBridgeUntagged(object):  # pylint: disable=W0612,R0903
         print repr("\n".join(expected_result))
         assert result == "\n".join(expected_result)
 
+    @raises(SystemExit)
+    def test_bridge_config_no_oob_switch(self):
+        """Test that generating the bridge config without an OOB switch exits
+        """
+        topology_file = "./tests/dot_files/reference_topology.dot"
+        parser = tc.ParseGraphvizTopology()
+        parsed_topology = parser.parse_topology(topology_file)
+        inventory = tc.Inventory()
+        inventory.add_parsed_topology(parsed_topology)
+        inventory.oob_switch = None
+        tc.render_bridge_untagged(inventory, topology_file, "./templates/auto_mgmt_network/")

@@ -984,3 +984,74 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
             x += 1
 
         self.inventory.build_mgmt_network()
+
+    def test_validate_eth0_no_eth0(self):
+        """Test that two nodes with no eth0 definition has them created
+        """
+        leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf01_interface = tc.NetworkInterface(hostname="leaf01",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
+
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
+
+        test_edge = tc.NetworkEdge(leaf01_interface, leaf02_interface)
+
+        self.inventory.add_node(leaf01_node)
+        self.inventory.add_node(leaf02_node)
+        self.inventory.add_edge(test_edge)
+
+        assert self.inventory.get_node_by_name("leaf01").get_interface("eth0") is None
+        assert self.inventory.get_node_by_name("leaf02").get_interface("eth0") is None
+
+        self.inventory.validate_eth0()
+
+        assert self.inventory.get_node_by_name("leaf01").get_interface("eth0") is not None
+        assert self.inventory.get_node_by_name("leaf02").get_interface("eth0") is not None
+
+
+    def test_validate_eth0_already_defined(self):
+        """Test that validating eth0 with a node with an existing eth0 does nothing
+        """
+        leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf01_interface = tc.NetworkInterface(hostname="leaf01",
+                                               interface_name="eth0",
+                                               mac=None, ip=None)
+
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="eth0",
+                                               mac=None, ip=None)
+
+        test_edge = tc.NetworkEdge(leaf01_interface, leaf02_interface)
+
+        self.inventory.add_node(leaf01_node)
+        self.inventory.add_node(leaf02_node)
+        self.inventory.add_edge(test_edge)
+
+        leaf01_eth0 = self.inventory.get_node_by_name("leaf01").get_interface("eth0")
+        leaf02_eth0 = self.inventory.get_node_by_name("leaf02").get_interface("eth0")
+
+        assert leaf01_eth0 is not None
+        assert leaf02_eth0 is not None
+
+        self.inventory.validate_eth0()
+
+        # Check they are the same object, not modified by the validate_eth0 method
+        assert self.inventory.get_node_by_name("leaf01").get_interface("eth0") == leaf01_eth0
+        assert self.inventory.get_node_by_name("leaf02").get_interface("eth0") == leaf02_eth0

@@ -16,14 +16,14 @@ class TestInterfaceRemapJinja(object):  # pylint: disable=W0612,R0903
         we need to recreate the Jinja settings and pass a "node".
         """
         self.cli = tc.parse_arguments().parse_args(["tests/simple.dot", "-p", "libvirt", "-t",
-                                                    "./Vagrantfile/interface_remap.j2",
+                                                    "interface_remap.j2",
                                                     "Vagrantfile"])
 
         # It's required to set the jinja2 environment
         # so that the {% include %} statements within the Vagrantfile.j2
         # template knows where to look.
         self.env = jinja2.Environment()
-        self.env.loader = jinja2.FileSystemLoader("./templates")
+        self.env.loader = jinja2.FileSystemLoader("./templates/Vagrantfile")
         self.env.filters["format_mac"] = tc.format_mac
         self.env.filters["get_plural"] = tc.get_plural
         self.template = self.env.get_template(self.cli.template[0][0])

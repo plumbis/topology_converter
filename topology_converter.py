@@ -95,6 +95,21 @@ class NetworkNode(object):
                 "os": "yk0/ubuntu-xenial",
                 "memory": "512",
                 "config": "./helper_scripts/extra_server_config.sh"
+            },
+            "leaf": {
+                "os": "cumuluscommunity/cumulus-vx",
+                "memory": "768",
+                "config": "./helper_scripts/extra_switch_config.sh"
+            },
+            "spine": {
+                "os": "cumuluscommunity/cumulus-vx",
+                "memory": "768",
+                "config": "./helper_scripts/extra_switch_config.sh"
+            },
+            "nothing": {
+                "os": "cumuluscommunity/cumulus-vx",
+                "memory": "1",
+                "config": "./helper_scripts/extra_switch_config.sh"
             }
         }
 
@@ -833,6 +848,23 @@ class Inventory(object):
                 self.mgmt_ips.add(candidate_ip_object)
                 current_lease += 1
 
+    def validate_eth0(self):
+        """Ensures every device has an eth0 interface. Otherwise Switchd will bomb even on Vx.
+        If a device does not have an eth0 interface, one will be created and connected to a
+        special NOTHING NetworkNode
+        """
+        nothing_node = NetworkNode(hostname="NOTHING", function="nothing")
+        self.add_node(nothing_node)
+        nothing_interface_count = 0
+
+        for node in self.node_collection.values():
+            if node.get_interface("eth0") is None:
+                nothing_interface = "eth" + str(nothing_interface_count)
+                self.add_edge(NetworkEdge(NetworkInterface(hostname=node.hostname,
+                                                           interface_name="eth0"),
+                                          NetworkInterface(hostname=nothing_node.hostname,
+                                                           interface_name=(nothing_interface))))
+                nothing_interface_count += 1
 
 # A class for this may not be the best thing,
 # but seems easier than stand alone methods
@@ -1102,7 +1134,7 @@ def parse_arguments():
                         packaged with the mgmt-server in the '-c' option. This option \
                         is typically used after the '-c' has been called to generate \
                         a Vagrantfile with an oob-mgmt-server and oob-mgmt-switch to \
-                        modify the configuraiton files placed on the oob-mgmt-server \
+                        modify the configuration files placed on the oob-mgmt-server \
                         device. Useful when you do not want to regenerate the \
                         vagrantfile but you do want to make changes to the \
                         OOB-mgmt-server configuration templates.")
@@ -1154,7 +1186,7 @@ def parse_arguments():
     parser.add_argument("--vagrantfile", default="Vagrantfile",
                         help="Define a customer file to output instead of 'Vagrantfile'")
 
-    parser.add_argument("-m", "--memory", default="Vagrantfile",
+    parser.add_argument("-m", "--memory", action="store_true",
                         help="Display the estimated topology memory requirements and exits \
                          This supports the -c option and will include the management \
                          network in the memory output")
@@ -1398,6 +1430,31 @@ def render_oob_server_sh(inventory, topology_file, input_dir):
     return template.render(jinja_variables)
 
 
+def render_bridge_untagged(inventory, topology_file, input_dir):
+    """Generate the untagged bridge interfaces config for the OOB server
+    based on the bridge-untagged.j2 template
+    """
+    bridge_untagged_template = os.path.join(input_dir, "bridge-untagged.j2")
+
+    jinja_variables = {"version": VERSION, "topology": topology_file}
+
+    # we wouldn't be building this if the oob-mgmt-server doesn't exist
+    oob_switch = inventory.oob_switch
+
+    # but check just in case
+    if oob_switch is None:
+        print_error(
+            "Something went wrong, no OOB Switch exists. \
+            Failed to build switch interfaces configuration")
+
+    jinja_variables["node"] = oob_switch
+    jinja_variables["mgmt_ip"] = str(oob_switch.mgmt_ip.with_prefixlen)
+
+    template = jinja2.Template(open(bridge_untagged_template).read())
+
+    return template.render(jinja_variables)
+
+
 def render_ztp_oob(inventory, topology_file, input_dir):
     """Generate the contents of the default ztp script
     based on a jinja2 template
@@ -1521,6 +1578,7 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     # pass the format_mac() and get_plural() methods to jinja2 as a filter
     env.filters["format_mac"] = format_mac
     env.filters["get_plural"] = get_plural
+    # Define the search path for Jinja Templates
 
     template = env.get_template(vagrant_template)
 
@@ -1595,7 +1653,7 @@ def main():
     """
     # W0603 - use of global statement
     global VERBOSE  # pylint: disable=W0603
-    vagrant_template = "templates/Vagrantfile.j2"
+    vagrant_template = "./templates/Vagrantfile/Vagrantfile.j2"
     cli = parse_arguments()
     cli_args = cli.parse_args()
     check_files(cli_args, vagrant_template)
@@ -1613,43 +1671,52 @@ def main():
     inventory = Inventory(provider=cli_args.provider)
     inventory.add_parsed_topology(parsed_topology)
 
-    if cli_args.create_mgmt_network:
+    if cli_args.create_mgmt_network or cli_args.create_mgmt_configs_only:
         inventory.build_mgmt_network()
 
-    if cli_args.create_management_device:
+    if cli_args.create_mgmt_device:
         inventory.build_mgmt_network(create_mgmt_device=True)
 
     if cli_args.memory:
-        print inventory.calculate_memory()
+        print str(inventory.calculate_memory()) + " mb"
         exit(0)
 
-    if cli_args.create_mgmt_network or cli_args.create_management_device:
-        write_file("./helper_scripts/auto_mgmt_network",
+    if cli_args.create_mgmt_network or cli_args.create_mgmt_device:
+        write_file("./helper_scripts/auto_mgmt_network/ansible_hostfile",
                    render_ansible_hostfile(inventory, cli_args.topology_file,
                                            "./templates/auto_mgmt_network/"))
 
-        write_file("./helper_scripts/auto_mgmt_network",
+        write_file("./helper_scripts/auto_mgmt_network/dhcpd.conf",
                    render_dhcpd_conf(inventory, cli_args.topology_file,
                                      "./templates/auto_mgmt_network/"))
 
-        write_file("./helper_scripts/auto_mgmt_network",
+        write_file("./helper_scripts/auto_mgmt_network/dhcpd.hosts",
                    render_dhcpd_hosts(inventory, cli_args.topology_file,
                                       "./templates/auto_mgmt_network/"))
 
-        write_file("./helper_scripts/auto_mgmt_network",
+        write_file("./helper_scripts/auto_mgmt_network/hosts",
                    render_hosts_file(inventory, cli_args.topology_file,
                                      "./templates/auto_mgmt_network/"))
 
-        write_file("./helper_scripts/auto_mgmt_network",
+        write_file("./helper_scripts/auto_mgmt_network/OOB_Server_Config_auto_mgmt.sh",
                    render_oob_server_sh(inventory, cli_args.topology_file,
                                         "./templates/auto_mgmt_network/"))
 
-        write_file("./helper_scripts/auto_mgmt_network",
+        write_file("./helper_scripts/auto_mgmt_network/ztp_oob.sh",
                    render_ztp_oob(inventory, cli_args.topology_file,
                                   "./templates/auto_mgmt_network/"))
 
-    write_file("./helper_scripts/auto_mgmt_network",
-               render_vagrantfile(inventory, "./templates/", cli_args))
+    if cli_args.create_mgmt_network:
+        write_file("./helper_scripts/auto_mgmt_network/bridge-untagged",
+                   render_bridge_untagged(inventory, cli_args.topology_file,
+                                          "./templates/auto_mgmt_network/"))
+
+    # Be sure everyone has an eth0 interface, create them if we must
+    inventory.validate_eth0()
+
+    if not cli_args.create_mgmt_configs_only:
+        write_file("./Vagrantfile",
+                   render_vagrantfile(inventory, "./templates/Vagrantfile/", cli_args))
 
     exit(0)
 

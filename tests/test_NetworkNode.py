@@ -33,10 +33,10 @@ class Test_NetworkNode(object): # pylint: disable=R0904
 
         assert node.hostname == "leaf01"
         assert node.function == "leaf"
-        assert node.vm_os is None
+        assert node.vm_os == "cumuluscommunity/cumulus-vx"
         assert node.os_version is None
         assert node.memory == "768"
-        assert node.config is None
+        assert node.config == "./helper_scripts/extra_switch_config.sh"
         assert node.libvirt_local_ip == "127.0.0.1"
         assert not node.playbook
         assert not node.pxehost

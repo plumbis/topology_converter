@@ -5,7 +5,7 @@
         support setting the hostname through Vagrant. 
         The main example is Cumulus Vx 2.5.x 
     #}
-    {%- if node["legacy"] %}
+    {%- if not node["legacy"] %}
     device.vm.hostname = "{{ node["hostname"] }}"
     {%- endif -%}
 
@@ -39,16 +39,16 @@
         {%- endif %}
     {%- if cli_args["provider"] == "virtualbox" %}
         {# Any vbox specific customizations #}
-        {%- include "./Vagrantfile/customize_vbox.j2" -%}
+        {%- include "./customize_vbox.j2" -%}
 
     {%- elif cli_args["provider"] == 'libvirt' %}    
         {# Any libvirt specific customizations #}
-        {%- include "./Vagrantfile/customize_libvirt.j2" %}
+        {%- include "./customize_libvirt.j2" %}
     {%- endif %}
 
     end
 
-{%- if cli_args["synced_folder"]  %}
+{%- if not cli_args["synced_folder"]  %}
     #   see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
     device.vm.synced_folder ".", "/vagrant", disabled: true
 {%- endif %}
@@ -62,38 +62,38 @@
     # link for {{ interface["interface_name"] }} --> {{ interface["remote_hostname"] }}:{{ interface["remote_interface"] }}
 
     {%- if cli_args["provider"] == "virtualbox" %}
-        {%- include "./Vagrantfile/vbox_interfaces.j2" %}
+        {%- include "./vbox_interfaces.j2" %}
 
     {%- elif cli_args["provider"] == 'libvirt' %}    
-        {%- include "./Vagrantfile/libvirt_interfaces.j2" %}
+        {%- include "./libvirt_interfaces.j2" %}
     {%- endif %}
     {%- endfor %} 
 
     # Fixes "stdin: is not a tty" and "mesg: ttyname failed : Inappropriate ioctl for device"  messages --> https://github.com/mitchellh/vagrant/issues/1673
     device.vm.provision :shell , inline: "(sudo grep -q 'mesg n' /root/.profile 2>/dev/null && sudo sed -i '/mesg n/d' /root/.profile  2>/dev/null) || true;", privileged: false
 
-    {% include "./Vagrantfile/customize_ubuntu.j2" %}
+    {% include "./customize_ubuntu.j2" %}
 
-    {%- if node["function"] == "oob-server" and cli_args["create_mgmt_device"] -%}
-    {% include "./Vagrantfile/oob_mgmt_server_provisioner.j2" %}
+    {%- if node["function"] == "oob-server" and cli_args["create_mgmt_network"] -%}
+    {% include "./oob_mgmt_server_provisioner.j2" %}
     {%- endif %}
 
-    {%- if cli_args["create_mgmt_device"] and "cumulus" in node["vm_os"] -%}
-        {% include "./Vagrantfile/cumulus_os_provisioner.j2" %}
+    {%- if cli_args["create_mgmt_network"] and "cumulus" in node["vm_os"] -%}
+        {% include "./cumulus_os_provisioner.j2" %}
     {%- endif -%}
 
-    {%- if node["function"] == "oob-switch" and cli_args["create_mgmt_device"] -%}
-        {% include "./Vagrantfile/oob_mgmt_switch_provisioner.j2" %}
+    {%- if node["function"] == "oob-switch" and cli_args["create_mgmt_network"] -%}
+        {% include "./oob_mgmt_switch_provisioner.j2" %}
     {%- endif -%}
 
     {%- if node["config"] %}
-        {% include "./Vagrantfile/device_config.j2" %}
+        {% include "./device_config.j2" %}
     {% endif %}
 
-    {% include "./Vagrantfile/interface_remap.j2" %}
+    {% include "./interface_remap.j2" %}
 
     {% if node["playbook"] %}
-    {% include "./Vagrantfile/ansible_playbook.j2" %}
+    {% include "./ansible_playbook.j2" %}
     {% endif -%}
 
     # Run Any Platform Specific Code and Apply the interface Re-map

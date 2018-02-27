@@ -2,9 +2,9 @@
         v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
 
 {%- for i in range(2, 2 + node["interfaces"].__len__()) %}
-        vbox.customize ["modifyvm", :id, '--nicpromisc{{ i }}', 'allow-all']
+        v.customize ["modifyvm", :id, '--nicpromisc{{ i }}', 'allow-all']
 {%- endfor %}
-        vbox.customize ["modifyvm", :id, '--nictype1', 'virtio']
+        v.customize ["modifyvm", :id, '--nictype1', 'virtio']
 
 {%- if node["pxehost"] %}
 

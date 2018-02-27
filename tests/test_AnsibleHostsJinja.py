@@ -12,7 +12,7 @@ class TestAnsibleGroupsJinja(object):  # pylint: disable=W0612,R0903
         """Initalize the tests with a basic CLI
         """
         self.cli = tc.parse_arguments().parse_args(["tests/simple.dot", "-p", "virtualbox", "-t",
-                                                    "./Vagrantfile/ansible_hosts.j2",
+                                                    "ansible_hosts.j2",
                                                     "Vagrantfile"])
 
     def test_ansible_jinja_simple_topology(self): # pylint: disable=R0201
@@ -23,7 +23,7 @@ class TestAnsibleGroupsJinja(object):  # pylint: disable=W0612,R0903
         parsed_topology = parser.parse_topology(topology_file)
         inventory = tc.Inventory()
         inventory.add_parsed_topology(parsed_topology)
-        result = tc.render_vagrantfile(inventory, "./templates/", self.cli)
+        result = tc.render_vagrantfile(inventory, "./templates/Vagrantfile", self.cli)
         include_result = "./tests/expected_jinja_outputs/simple_ansible_groups_jinja"
         expected_output = []
         expected_output.append("  #Generating Ansible Host File at following location:")
@@ -46,7 +46,7 @@ class TestAnsibleGroupsJinja(object):  # pylint: disable=W0612,R0903
         parsed_topology = parser.parse_topology(topology_file)
         inventory = tc.Inventory()
         inventory.add_parsed_topology(parsed_topology)
-        result = tc.render_vagrantfile(inventory, "./templates/", self.cli)
+        result = tc.render_vagrantfile(inventory, "./templates/Vagrantfile", self.cli)
         include_result = "./tests/expected_jinja_outputs/reference_topology_ansible_groups_jinja"  # pylint: disable=C0301
         expected_output = []
         expected_output.append("  #Generating Ansible Host File at following location:")

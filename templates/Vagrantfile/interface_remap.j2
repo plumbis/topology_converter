@@ -5,7 +5,7 @@
     # REMAP Disabled for this node
 {% else -%}
 
-{% include "./Vagrantfile/delete_udev_directory.j2" %}
+{% include "./delete_udev_directory.j2" %}
     {% for interface in node["interfaces"].values() %}
     device.vm.provision :shell , :inline => <<-udev_rule
       echo '  INFO: Adding UDEV Rule: {{ interface["mac"] | replace("0x","") | format_mac }} --> {{ interface["interface_name"] }}'

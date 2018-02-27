@@ -3,7 +3,7 @@
   config.vm.provision "ansible" do |ansible|
     ansible.playbook = "./helper_scripts/empty_playbook.yml"
 
-    {% include "./Vagrantfile/ansible_groups.j2" %}
+    {% include "./ansible_groups.j2" %}
 
   end
 

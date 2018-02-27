@@ -2,6 +2,7 @@
 ##### DEFINE VM for server1 #####
   config.vm.define "server1" do |device|
     
+    device.vm.hostname = "server1"
     device.vm.box = "boxcutter/ubuntu1404"
 
     device.vm.provider "libvirt" do |v|
@@ -11,6 +12,8 @@
         v.nic_model_type = 'e1000'
 
     end
+    #   see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
+    device.vm.synced_folder ".", "/vagrant", disabled: true
 
     # NETWORK INTERFACES
     # link for eth0 --> pxehost:eth0

@@ -2,6 +2,7 @@
 ##### DEFINE VM for server1 #####
   config.vm.define "server1" do |device|
     
+    device.vm.hostname = "server1"
     device.vm.box = "boxcutter/ubuntu1404"
 
     device.vm.provider "virtualbox" do |v|
@@ -9,10 +10,12 @@
         v.memory = 512
         
         v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
-        vbox.customize ["modifyvm", :id, '--nicpromisc2', 'allow-all']
-        vbox.customize ["modifyvm", :id, '--nictype1', 'virtio']
+        v.customize ["modifyvm", :id, '--nicpromisc2', 'allow-all']
+        v.customize ["modifyvm", :id, '--nictype1', 'virtio']
 
     end
+    #   see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
+    device.vm.synced_folder ".", "/vagrant", disabled: true
 
     # NETWORK INTERFACES
     # link for eth0 --> pxehost:eth0

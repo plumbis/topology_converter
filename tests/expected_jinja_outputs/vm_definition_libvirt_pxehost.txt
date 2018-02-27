@@ -2,6 +2,7 @@
 ##### DEFINE VM for pxehost #####
   config.vm.define "pxehost" do |device|
     
+    device.vm.hostname = "pxehost"
     device.ssh.insert_key = false
     # NO BOX USED FOR PXE DEVICE WITH LIBVIRT
 
@@ -14,6 +15,8 @@
         v.nic_model_type = 'e1000'
 
     end
+    #   see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
+    device.vm.synced_folder ".", "/vagrant", disabled: true
 
     # NETWORK INTERFACES
     # link for eth0 --> server1:eth0

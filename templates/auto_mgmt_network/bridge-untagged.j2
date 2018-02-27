@@ -1,8 +1,15 @@
-#Created by Topology-Converter v{{ version }}
+# Created by Topology-Converter v{{ version }}
 #    Template Revision: v5.0.0
 
-auto bridge-untagged
-iface bridge-untagged
-{% if device.mgmt_ip is defined %}    address {{ device.mgmt_ip }}{{ devices[0].mgmt_cidrmask }}{% endif %}
-    bridge-ports {% for link in device.interfaces -%}{% if "swp" in link.local_interface %}{{ link.local_interface }} {% endif %}{% endfor %}
-{%   endif %}
+auto bridge
+iface bridge
+    bridge-vlan-aware yes
+    bridge-vids 1
+    bridge-ports {%- for interface in node["interfaces"].keys() -%}{%- if interface != "eth0" %} {{ interface }} {%- endif %} {%- endfor %}
+  
+
+auto vlan1
+iface vlan1
+   address {{ mgmt_ip }}
+   vlan-raw-device bridge
+ 

@@ -16,14 +16,14 @@ class TestVmDefinition(object):  # pylint: disable=W0612,R0903
         we need to recreate the Jinja settings and pass a "node".
         """
         self.cli = tc.parse_arguments().parse_args(["tests/simple.dot", "-p", "virtualbox", "-t",
-                                                    "./Vagrantfile/vm_definition.j2",
+                                                    "vm_definition.j2",
                                                     "Vagrantfile"])
 
         # It's required to set the jinja2 environment
         # so that the {% include %} statements within the Vagrantfile.j2
         # template knows where to look.
         self.env = jinja2.Environment()
-        self.env.loader = jinja2.FileSystemLoader("./templates")
+        self.env.loader = jinja2.FileSystemLoader("./templates/Vagrantfile")
         self.env.filters["format_mac"] = tc.format_mac
         self.env.filters["get_plural"] = tc.get_plural
         self.template = self.env.get_template(self.cli.template[0][0])
@@ -48,22 +48,6 @@ class TestVmDefinition(object):  # pylint: disable=W0612,R0903
         assert result == open(expected_result_file).read()
 
     def test_vm_definition_vbox_pxehost_topology_virtualbox_legacy(self): # pylint: disable=R0201
-        """Test the vm_definition.j2 template against a two node topology with legacy flag set
-        """
-        topology_file = "./tests/dot_files/pxehost.dot"
-        parser = tc.ParseGraphvizTopology()
-        parsed_topology = parser.parse_topology(topology_file)
-        inventory = tc.Inventory()
-        inventory.add_parsed_topology(parsed_topology)
-        inventory.get_node_by_name("server1").vagrant_user = "cumulus"
-        jinja_variables = tc.get_vagrantfile_variables(inventory, self.cli)
-        jinja_variables["node"] = inventory.get_node_by_name("server1")
-
-        result = self.template.render(jinja_variables).splitlines()
-
-        assert "    device.ssh.username = \"cumulus\"" in result
-
-    def test_vm_definition_vbox_pxehost_topology_virtualbox_vagrant_user(self): # pylint: disable=R0201
         """Test the vm_definition.j2 template against a two node topology with vagrant user set
         """
         topology_file = "./tests/dot_files/pxehost.dot"
@@ -75,9 +59,10 @@ class TestVmDefinition(object):  # pylint: disable=W0612,R0903
         jinja_variables = tc.get_vagrantfile_variables(inventory, self.cli)
         jinja_variables["node"] = inventory.get_node_by_name("server1")
 
-        result = self.template.render(jinja_variables).splitlines()
+        result = self.template.render(jinja_variables)
 
-        assert "    device.vm.hostname = \"server1\"" in result
+        print result
+        assert "    device.vm.hostname = \"server1\"" not in result.splitlines()
 
     def test_vm_definition_vbox_pxehost_pxe_device(self): # pylint: disable=R0201
         """Test the vm_definition.j2 template against a two node topology with a pxehost
@@ -128,12 +113,12 @@ class TestVmDefinition(object):  # pylint: disable=W0612,R0903
         jinja_variables["node"] = inventory.get_node_by_name("server1")
 
         result = self.template.render(jinja_variables)
-        assert "    device.vm.synced_folder \".\", \"/vagrant\", disabled: true" in result
+        assert "    device.vm.synced_folder \".\", \"/vagrant\", disabled: true" not in result
 
     def test_vm_definition_vbox_oob_server(self): # pylint: disable=R0201
         """Test the vm_definition.j2 template with the oob server defined
         """
-        self.cli.create_mgmt_device = True
+        self.cli.create_mgmt_network = True
         topology_file = "./tests/dot_files/simple.dot"
         parser = tc.ParseGraphvizTopology()
         parsed_topology = parser.parse_topology(topology_file)
@@ -144,18 +129,18 @@ class TestVmDefinition(object):  # pylint: disable=W0612,R0903
         jinja_variables["node"] = inventory.get_node_by_name("oob-mgmt-server")
 
         result = self.template.render(jinja_variables)
-
+        print result
         assert "    # Copy over DHCP files and MGMT Network Files" in result
-        assert "    device.vm.provision \"file\", source: \"./auto_mgmt_network/dhcpd.conf\", destination: \"~/dhcpd.conf\"" in result  # pylint: disable=C0301
-        assert "    device.vm.provision \"file\", source: \"./auto_mgmt_network/dhcpd.hosts\", destination: \"~/dhcpd.hosts\"" in result  # pylint: disable=C0301
-        assert "    device.vm.provision \"file\", source: \"./auto_mgmt_network/hosts\", destination: \"~/hosts\"" in result  # pylint: disable=C0301
-        assert "    device.vm.provision \"file\", source: \"./auto_mgmt_network/ansible_hostfile\", destination: \"~/ansible_hostfile\"" in result  # pylint: disable=C0301
-        assert "    device.vm.provision \"file\", source: \"./auto_mgmt_network/ztp_oob.sh\", destination: \"~/ztp_oob.sh\"" in result  # pylint: disable=C0301
+        assert "    device.vm.provision \"file\", source: \"./helper_scripts/auto_mgmt_network/dhcpd.conf\", destination: \"~/dhcpd.conf\"" in result  # pylint: disable=C0301
+        assert "    device.vm.provision \"file\", source: \"./helper_scripts/auto_mgmt_network/dhcpd.hosts\", destination: \"~/dhcpd.hosts\"" in result  # pylint: disable=C0301
+        assert "    device.vm.provision \"file\", source: \"./helper_scripts/auto_mgmt_network/hosts\", destination: \"~/hosts\"" in result  # pylint: disable=C0301
+        assert "    device.vm.provision \"file\", source: \"./helper_scripts/auto_mgmt_network/ansible_hostfile\", destination: \"~/ansible_hostfile\"" in result  # pylint: disable=C0301
+        assert "    device.vm.provision \"file\", source: \"./helper_scripts/auto_mgmt_network/ztp_oob.sh\", destination: \"~/ztp_oob.sh\"" in result  # pylint: disable=C0301
 
     def test_vm_definition_vbox_oob_switch(self): # pylint: disable=R0201
         """Test the vm_definition.j2 template with the oob switch defined
         """
-        self.cli.create_mgmt_device = True
+        self.cli.create_mgmt_network = True
         topology_file = "./tests/dot_files/simple.dot"
         parser = tc.ParseGraphvizTopology()
         parsed_topology = parser.parse_topology(topology_file)
@@ -167,7 +152,7 @@ class TestVmDefinition(object):  # pylint: disable=W0612,R0903
 
         result = self.template.render(jinja_variables)
         print result
-        assert "    device.vm.provision \"file\", source: \"./auto_mgmt_network/bridge-untagged\", destination: \"~/bridge-untagged\"" in result  # pylint: disable=C0301
+        assert "    device.vm.provision \"file\", source: \"./helper_scripts/auto_mgmt_network/bridge-untagged\", destination: \"~/bridge-untagged\"" in result  # pylint: disable=C0301
 
     def test_vm_definition_libvirt_pxehost_topology(self): # pylint: disable=R0201
         """Test the vm_definition.j2 template against a two node topology with libvirt

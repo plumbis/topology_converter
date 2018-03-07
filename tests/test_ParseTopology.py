@@ -425,7 +425,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000011"
+                assert node.interfaces["eth0"].mac == "0xa00000000011"
 
             elif node.hostname == "leaf02":
                 assert node.hostname == "leaf02"
@@ -435,7 +435,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000012"
+                assert node.interfaces["eth0"].mac == "0xa00000000012"
 
             elif node.hostname == "leaf03":
                 assert node.hostname == "leaf03"
@@ -445,7 +445,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000013"
+                assert node.interfaces["eth0"].mac == "0xa00000000013"
 
             elif node.hostname == "leaf04":
                 assert node.hostname == "leaf04"
@@ -455,7 +455,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000014"
+                assert node.interfaces["eth0"].mac == "0xa00000000014"
 
             elif node.hostname == "spine01":
                 assert node.hostname == "spine01"
@@ -465,7 +465,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000021"
+                assert node.interfaces["eth0"].mac == "0xa00000000021"
 
             elif node.hostname == "spine02":
                 assert node.hostname == "spine02"
@@ -475,7 +475,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000022"
+                assert node.interfaces["eth0"].mac == "0xa00000000022"
 
             elif node.hostname == "exit01":
                 assert node.hostname == "exit01"
@@ -485,7 +485,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000041"
+                assert node.interfaces["eth0"].mac == "0xa00000000041"
 
             elif node.hostname == "exit02":
                 assert node.hostname == "exit02"
@@ -495,7 +495,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version == "3.5.1"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000042"
+                assert node.interfaces["eth0"].mac == "0xa00000000042"
 
             elif node.hostname == "server01":
                 assert node.hostname == "server01"
@@ -505,9 +505,9 @@ class TestParseTopology(object):
                 assert node.memory == "512"
                 assert node.os_version is None
                 assert node.vm_os == "yk0/ubuntu-xenial"
-                assert node.interfaces["eth1"].mac == "000300111101"
-                assert node.interfaces["eth2"].mac == "000300111102"
-                assert node.interfaces["eth0"].mac == "a00000000031"
+                assert node.interfaces["eth1"].mac == "0x300111101"
+                assert node.interfaces["eth2"].mac == "0x300111102"
+                assert node.interfaces["eth0"].mac == "0xa00000000031"
 
             elif node.hostname == "server02":
                 assert node.hostname == "server02"
@@ -517,9 +517,9 @@ class TestParseTopology(object):
                 assert node.memory == "512"
                 assert node.os_version is None
                 assert node.vm_os == "yk0/ubuntu-xenial"
-                assert node.interfaces["eth1"].mac == "000300222201"
-                assert node.interfaces["eth2"].mac == "000300222202"
-                assert node.interfaces["eth0"].mac == "a00000000032"
+                assert node.interfaces["eth1"].mac == "0x300222201"
+                assert node.interfaces["eth2"].mac == "0x300222202"
+                assert node.interfaces["eth0"].mac == "0xa00000000032"
 
             elif node.hostname == "server03":
                 assert node.hostname == "server03"
@@ -529,9 +529,9 @@ class TestParseTopology(object):
                 assert node.memory == "512"
                 assert node.os_version is None
                 assert node.vm_os == "yk0/ubuntu-xenial"
-                assert node.interfaces["eth1"].mac == "000300333301"
-                assert node.interfaces["eth2"].mac == "000300333302"
-                assert node.interfaces["eth0"].mac == "a00000000033"
+                assert node.interfaces["eth1"].mac == "0x300333301"
+                assert node.interfaces["eth2"].mac == "0x300333302"
+                assert node.interfaces["eth0"].mac == "0xa00000000033"
 
             elif node.hostname == "server04":
                 assert node.hostname == "server04"
@@ -541,9 +541,9 @@ class TestParseTopology(object):
                 assert node.memory == "512"
                 assert node.os_version is None
                 assert node.vm_os == "yk0/ubuntu-xenial"
-                assert node.interfaces["eth1"].mac == "000300444401"
-                assert node.interfaces["eth2"].mac == "000300444402"
-                assert node.interfaces["eth0"].mac == "a00000000034"
+                assert node.interfaces["eth1"].mac == "0x300444401"
+                assert node.interfaces["eth2"].mac == "0x300444402"
+                assert node.interfaces["eth0"].mac == "0xa00000000034"
 
             elif node.hostname == "edge01":
                 assert node.hostname == "edge01"
@@ -553,7 +553,7 @@ class TestParseTopology(object):
                 assert node.memory == "768"
                 assert node.os_version is None
                 assert node.vm_os == "yk0/ubuntu-xenial"
-                assert node.interfaces["eth0"].mac == "a00000000051"
+                assert node.interfaces["eth0"].mac == "0xa00000000051"
 
             elif node.hostname == "internet":
                 assert node.hostname == "internet"
@@ -564,7 +564,7 @@ class TestParseTopology(object):
                 assert node.os_version == "3.5.1"
                 assert node.vagrant_interface == "swp48"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["eth0"].mac == "a00000000050"
+                assert node.interfaces["eth0"].mac == "0xa00000000050"
 
             elif node.hostname == "oob-mgmt-switch":
                 assert node.hostname == "oob-mgmt-switch"
@@ -575,7 +575,7 @@ class TestParseTopology(object):
                 assert node.os_version == "3.5.1"
                 assert node.vagrant_interface == "eth0"
                 assert node.vm_os == "CumulusCommunity/cumulus-vx"
-                assert node.interfaces["swp1"].mac == "a00000000061"
+                assert node.interfaces["swp1"].mac == "0xa00000000061"
 
             elif node.hostname == "oob-mgmt-server":
                 assert node.hostname == "oob-mgmt-server"

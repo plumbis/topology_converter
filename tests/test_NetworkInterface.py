@@ -55,15 +55,13 @@ class TestNetworkInterface(object):   # pylint: disable=W0232, C0103
                                         interface_name="swp51",
                                         mac=None, ip=None)
         for mac in valid_macs:
-            print mac
-            assert interface.validate_mac(mac) == "443839ff0000"
-
+            assert interface.validate_mac(mac) == "0x443839ff0000"
 
     def test_invalid_mac_generator(self):
         """Generator for testing invalid macs
         """
         invalid_macs = ["443839zz0000", "01005e000000", "ffffffffffff", "000000000000", "0000",
-                        "00000000000000", "0000beefcake"]
+                        "00000000000000", "0000beefcake", "0x443839ff0000"]
 
         for mac in invalid_macs:
             yield self.invalid_mac_values, mac
@@ -73,3 +71,13 @@ class TestNetworkInterface(object):   # pylint: disable=W0232, C0103
         """Invalid macs cause system exit
         """
         tc.NetworkInterface(hostname="leaf01", interface_name="swp51", mac=mac, ip=None)
+
+
+    def test_leading_zero_mac(self):  # pylint: disable=R0201
+        """Test a mac with leading zeros is valid
+        """
+        interface = tc.NetworkInterface(hostname="leaf01",
+                                        interface_name="swp51",
+                                        mac=None, ip=None)
+
+        assert interface.validate_mac("003839ff0000") == "0x3839ff0000"

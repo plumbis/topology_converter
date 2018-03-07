@@ -1,0 +1,48 @@
+# /etc/dhcp/dhcpd.hosts
+# Created by Topology-Converter v5.0.0
+#    Template Revision: v5.0.0
+#    https://github.com/cumulusnetworks/topology_converter
+#    using topology data from: ./tests/dot_files/example_cmd.dot
+
+group {
+  option domain-name-servers 10.128.0.1;
+  option domain-name "simulation";
+  #option routers 10.128.0.1;
+  option www-server 10.128.0.1;
+  option default-url = "http://10.128.0.1/onie-installer";
+
+
+  host oob-mgmt-switch {
+      hardware ethernet 44:38:39:00:00:00;
+      fixed-address 10.128.0.254/24;
+      option host-name "oob-mgmt-switch";
+      option cumulus-provision-url "http://10.128.0.1/ztp_oob.sh";
+  }
+
+  host server01 {
+      hardware ethernet a0:00:00:00:00:31;
+      fixed-address 10.128.0.31/24;
+      option host-name "server01";
+  }
+
+  host server02 {
+      hardware ethernet a0:00:00:00:00:32;
+      fixed-address 10.128.0.32/24;
+      option host-name "server02";
+  }
+
+  host leaf02 {
+      hardware ethernet 00:25:90:b2:30:bd;
+      fixed-address 10.128.0.102/24;
+      option host-name "leaf02";
+      option cumulus-provision-url "http://10.128.0.1/ztp_oob.sh";
+  }
+
+  host leaf01 {
+      hardware ethernet 00:25:90:b2:27:0b;
+      fixed-address 10.128.0.101/24;
+      option host-name "leaf01";
+      option cumulus-provision-url "http://10.128.0.1/ztp_oob.sh";
+  }
+}
+#End of static host group

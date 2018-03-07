@@ -47,9 +47,9 @@ class TestLibvirtInterfaces(object):  # pylint: disable=W0612,R0903
         expected_result.append("        :mac => 'a0:00:00:00:00:11',")
         expected_result.append("        :libvirt__tunnel_type => 'udp',")
         expected_result.append("        :libvirt__tunnel_local_ip => '127.0.0.1',")
-        expected_result.append("        :libvirt__tunnel_local_port => '1043',")
+        expected_result.append("        :libvirt__tunnel_local_port => '1044',")
         expected_result.append("        :libvirt__tunnel_ip => '127.0.0.1',")
-        expected_result.append("        :libvirt__tunnel_port => '9043',")
+        expected_result.append("        :libvirt__tunnel_port => '9044',")
         expected_result.append("        :libvirt__iface_name => 'eth0',")
         expected_result.append("        auto_config: false")
 

@@ -21,9 +21,9 @@
         :mac => '44:38:39:00:00:00',
         :libvirt__tunnel_type => 'udp',
         :libvirt__tunnel_local_ip => '127.0.0.1',
-        :libvirt__tunnel_local_port => '1024',
+        :libvirt__tunnel_local_port => '1025',
         :libvirt__tunnel_ip => '127.0.0.1',
-        :libvirt__tunnel_port => '9024',
+        :libvirt__tunnel_port => '9025',
         :libvirt__iface_name => 'eth0',
         auto_config: false 
 

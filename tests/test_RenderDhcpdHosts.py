@@ -83,3 +83,20 @@ class TestRenderDhcpdHosts(object):  # pylint: disable=W0612,R0903
 
         ztp_line = "      option cumulus-provision-url \"http://192.168.200.254/leaf01_ztp.sh\";"
         assert ztp_line in result.splitlines()
+
+    def test_create_mgmt_device_set(self):
+        """Test generating with CMD set
+        """
+        topology_file = "./tests/dot_files/example_cmd.dot"
+        expected_result_file = "./tests/expected_jinja_outputs/example_cmd_dhcpd.hosts"
+        parser = tc.ParseGraphvizTopology()
+        parsed_topology = parser.parse_topology(topology_file)
+        inventory = tc.Inventory()
+        inventory.add_parsed_topology(parsed_topology)
+        inventory.build_mgmt_network(create_mgmt_device=True)
+
+        result = tc.render_dhcpd_hosts(inventory, topology_file, "./templates/auto_mgmt_network/")
+        print result
+        print ""
+        print open(expected_result_file).read()
+        assert result == open(expected_result_file).read()

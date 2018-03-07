@@ -230,6 +230,67 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
                inventory_leaf02.interfaces["swp51"].local_port
 
 
+    def test_add_edge_with_oob_switch_left(self):
+        """Test adding an edge to the OOB Switch
+        """
+        oob_switch = tc.NetworkNode(hostname="oob-mgmt-switch", function="oob-switch",
+                                    vm_os="CumulusCommunity/cumulus-vx",
+                                    memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        oob_interface = tc.NetworkInterface(hostname="oob-mgmt-switch",
+                                            interface_name="swp51",
+                                            mac=None, ip=None)
+
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
+
+        test_edge = tc.NetworkEdge(oob_interface, leaf02_interface)
+
+        self.inventory.add_node(oob_switch)
+        self.inventory.add_node(leaf02_node)
+
+        self.inventory.add_edge(test_edge)
+
+        inventory_leaf02 = self.inventory.node_collection["leaf02"]
+        assert inventory_leaf02.mgmt_interface == "swp51"
+        assert inventory_leaf02.mgmt_mac == "0x443839000002"
+
+
+    def test_add_edge_with_oob_switch_right(self):
+        """Test adding an edge to the OOB Switch as the right side of the edge
+        """
+        oob_switch = tc.NetworkNode(hostname="oob-mgmt-switch", function="oob-switch",
+                                    vm_os="CumulusCommunity/cumulus-vx",
+                                    memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        oob_interface = tc.NetworkInterface(hostname="oob-mgmt-switch",
+                                            interface_name="swp51",
+                                            mac=None, ip=None)
+
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="swp51",
+                                               mac=None, ip=None)
+
+        test_edge = tc.NetworkEdge(leaf02_interface, oob_interface)
+
+        self.inventory.add_node(oob_switch)
+        self.inventory.add_node(leaf02_node)
+
+        self.inventory.add_edge(test_edge)
+
+        inventory_leaf02 = self.inventory.node_collection["leaf02"]
+        assert inventory_leaf02.mgmt_interface == "swp51"
+        assert inventory_leaf02.mgmt_mac == "0x443839000001"
+
     @raises(SystemExit)
     def test_add_edge_duplicate_interface(self):
         """Test adding a duplicate edge causes program exit
@@ -1055,3 +1116,111 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
         # Check they are the same object, not modified by the validate_eth0 method
         assert self.inventory.get_node_by_name("leaf01").get_interface("eth0") == leaf01_eth0
         assert self.inventory.get_node_by_name("leaf02").get_interface("eth0") == leaf02_eth0
+
+    @raises(SystemExit)
+    def test_build_mgmt_network_oob_server_eth1_exists(self):
+        """Test building an auto mgmt network when the OOB server already has eth1
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("tests/dot_files/reference_topology.dot")
+        self.inventory.add_parsed_topology(parser)
+
+        self.inventory.build_mgmt_network()
+
+    @raises(SystemExit)
+    def test_build_mgmt_network_without_oob_switch_and_mgmt_device_set(self):
+        """Test building an auto mgmt network without an OOB switch defined
+        and the Build Mgmt Device flag set
+        """
+        leaf01_node = tc.NetworkNode(hostname="leaf01", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf02_node = tc.NetworkNode(hostname="leaf02", function="leaf",
+                                     vm_os="CumulusCommunity/cumulus-vx",
+                                     memory="768", config="./helper_scripts/oob_switch_config.sh")
+
+        leaf01_interface = tc.NetworkInterface(hostname="leaf01",
+                                               interface_name="swp1",
+                                               mac=None, ip=None)
+
+        leaf02_interface = tc.NetworkInterface(hostname="leaf02",
+                                               interface_name="swp1",
+                                               mac=None, ip=None)
+
+        test_edge = tc.NetworkEdge(leaf01_interface, leaf02_interface)
+
+        self.inventory.add_node(leaf01_node)
+        self.inventory.add_node(leaf02_node)
+        self.inventory.add_edge(test_edge)
+
+        self.inventory.build_mgmt_network(create_mgmt_device=True)
+
+    def test_build_mgmt_cmd_set_dynamic_management_ip(self):
+        """Test building a management device with dynamic management IPs
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/simple_with_oob.dot")
+        self.inventory.provider = "virtualbox"
+        self.inventory.add_parsed_topology(parser)
+
+        self.inventory.build_mgmt_network(create_mgmt_device=True)
+
+        assert self.inventory.get_node_by_name("leaf01").mgmt_interface == "eth0"
+        assert self.inventory.get_node_by_name("leaf02").mgmt_interface == "eth1"
+        assert self.inventory.get_node_by_name("leaf03").mgmt_interface == "eth0"
+        assert self.inventory.get_node_by_name("leaf04").mgmt_interface == "eth0"
+        assert self.inventory.get_node_by_name("spine01").mgmt_interface == "eth0"
+
+        assert self.inventory.get_node_by_name("leaf01").mgmt_ip is not None
+        assert self.inventory.get_node_by_name("leaf02").mgmt_ip is not None
+        assert self.inventory.get_node_by_name("leaf03").mgmt_ip is not None
+        assert self.inventory.get_node_by_name("leaf04").mgmt_ip is not None
+        assert self.inventory.get_node_by_name("spine01").mgmt_ip is not None
+
+        # Ensure everyone was given a unique IP address.
+        mgmt_ips = set()
+        mgmt_ips.add(self.inventory.get_node_by_name("leaf01").mgmt_ip)
+        mgmt_ips.add(self.inventory.get_node_by_name("leaf02").mgmt_ip)
+        mgmt_ips.add(self.inventory.get_node_by_name("leaf03").mgmt_ip)
+        mgmt_ips.add(self.inventory.get_node_by_name("leaf04").mgmt_ip)
+        mgmt_ips.add(self.inventory.get_node_by_name("spine01").mgmt_ip)
+        print mgmt_ips
+        assert len(mgmt_ips) == 5
+
+
+    def test_build_mgmt_cmd_set_static_management_ip(self):
+        """Test building a management device with static management IPs
+        """
+        parser = tc.ParseGraphvizTopology()
+        parser.parse_topology("./tests/dot_files/example_cmd.dot")
+        self.inventory.provider = "virtualbox"
+        self.inventory.add_parsed_topology(parser)
+
+        self.inventory.build_mgmt_network(create_mgmt_device=True)
+
+        print str(self.inventory.get_node_by_name("oob-mgmt-switch").mgmt_ip)
+        assert str(self.inventory.get_node_by_name("leaf01").mgmt_ip) == "10.128.0.101/24"
+        assert str(self.inventory.get_node_by_name("leaf02").mgmt_ip) == "10.128.0.102/24"
+        assert str(self.inventory.get_node_by_name("server01").mgmt_ip) == "10.128.0.31/24"
+        assert str(self.inventory.get_node_by_name("server02").mgmt_ip) == "10.128.0.32/24"
+        assert str(self.inventory.get_node_by_name("oob-mgmt-switch").mgmt_ip) == "10.128.0.254/24"
+
+        assert self.inventory.get_node_by_name("leaf01").mgmt_interface == "eth0"
+        assert self.inventory.get_node_by_name("leaf02").mgmt_interface == "eth0"
+        assert self.inventory.get_node_by_name("server01").mgmt_interface == "eth0"
+        assert self.inventory.get_node_by_name("server02").mgmt_interface == "eth0"
+        assert self.inventory.get_node_by_name("oob-mgmt-server").mgmt_interface == "mgmt_net"
+
+
+    @raises(SystemExit)
+    def test_build_mgmt_oob_switch_not_in_server_subnet(self):
+        """Test trying to build an auto mgmt network when the oob switch's mgmt IP
+        is not in the same subnet as the oob server
+        """
+        self.inventory.add_node(tc.NetworkNode(hostname="oob-mgmt-server", function="oob-server",
+                                               other_attributes={"mgmt_ip": "10.1.1.1/24"}))
+        self.inventory.add_node(tc.NetworkNode(hostname="oob-mgmt-switch", function="oob-switch",
+                                               other_attributes={"mgmt_ip": "192.168.1.1/24"}))
+
+        self.inventory.build_mgmt_network()

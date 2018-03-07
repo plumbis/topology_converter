@@ -1,0 +1,22 @@
+ graph vx {
+  "leaf01" [function="leaf" os="CumulusCommunity/cumulus-vx" version="3.2.1" memory="512" config="./helper_scripts/config_switch.sh" mgmt_ip="10.128.0.101"]
+  "leaf02" [function="leaf" os="CumulusCommunity/cumulus-vx" version="3.2.1" memory="512" config="./helper_scripts/config_switch.sh" mgmt_ip="10.128.0.102"]
+  "server01" [function="host" os="yk0/ubuntu-xenial" memory="512" config="./helper_scripts/config_server.sh" mgmt_ip="10.128.0.31"]
+  "server02" [function="host" os="yk0/ubuntu-xenial" memory="512" config="./helper_scripts/config_server.sh" mgmt_ip="10.128.0.32"]
+  "oob-mgmt-switch" [function="oob-switch" os="CumulusCommunity/cumulus-vx" version="3.2.1" config="./helper_scripts/oob_switch_config.sh" mgmt_ip="10.128.0.254"]
+  "oob-mgmt-server" [function="oob-server" os="yk0/ubuntu-xenial" memory="1024" mgmt_ip="10.128.0.1"]
+
+  "leaf01":"swp51" -- "leaf02":"swp51"
+  "leaf01":"swp52" -- "leaf02":"swp52"
+
+  "server01":"eth1" -- "leaf01":"swp1"
+  "server01":"eth2" -- "leaf02":"swp1"
+  "server02":"eth1" -- "leaf01":"swp2"
+  "server02":"eth2" -- "leaf02":"swp2"
+
+  "oob-mgmt-server":"mgmt_net" -- "oob-mgmt-switch":"swp99"
+  "server01":"eth0" -- "oob-mgmt-switch":"swp100" [left_mac="A0:00:00:00:00:31"]
+  "server02":"eth0" -- "oob-mgmt-switch":"swp101" [left_mac="A0:00:00:00:00:32"]
+  "leaf01":"eth0" -- "oob-mgmt-switch":"swp102" [left_mac="00:25:90:b2:27:0b"]
+  "leaf02":"eth0" -- "oob-mgmt-switch":"swp103" [left_mac="00:25:90:b2:30:bd"]
+  }

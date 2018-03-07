@@ -346,3 +346,229 @@ class Test_NetworkNode(object): # pylint: disable=R0904
             })
 
         assert test_node.mgmt_ip == ipaddress.ip_interface(u"10.1.1.1/24")
+
+    def test_node_str_libvirt(self):
+        """Test string representation of a Node when the provider is libvirt
+        """
+        leaf01 = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip": "10.1.1.1",
+            })
+
+        leaf02 = tc.NetworkNode(
+            hostname="leaf02",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip": "10.1.1.2",
+            })
+
+        interface1 = tc.NetworkInterface(hostname="leaf01",
+                                         interface_name="swp51",
+                                         mac="003839000000", ip=None)
+
+        interface2 = tc.NetworkInterface(hostname="leaf02",
+                                         interface_name="swp51",
+                                         mac=None, ip=None)
+
+        inventory = tc.Inventory(provider="libvirt")
+        inventory.add_node(leaf01)
+        inventory.add_node(leaf02)
+        inventory.add_edge(tc.NetworkEdge(interface1, interface2))
+
+        output = []
+        output.append("leaf01")
+        output.append("code: cumuluscommunity/cumulus-vx")
+        output.append("memory: 768")
+        output.append("function: leaf")
+        output.append("mgmt_ip: 10.1.1.1/24")
+        output.append("\tswp51")
+        output.append("\t\tlibvirt local tunnel IP: 127.0.0.1")
+        output.append("\t\tlocal_port: 1025")
+        output.append("\t\tremote_ip: 127.0.0.1")
+        output.append("\t\tremote_port: 9025")
+        output.append("\t\tmac: 00:38:39:00:00:00")
+
+        print leaf01
+        assert str(leaf01) == "\n".join(output)
+
+    def test_node_str_vbox(self):
+        """Test string representation of a Node when the provider is virtualbox
+        """
+        leaf01 = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip": "10.1.1.1",
+            })
+
+        leaf02 = tc.NetworkNode(
+            hostname="leaf02",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip": "10.1.1.2",
+            })
+
+        interface1 = tc.NetworkInterface(hostname="leaf01",
+                                         interface_name="swp51",
+                                         mac="003839000000", ip=None)
+
+        interface2 = tc.NetworkInterface(hostname="leaf02",
+                                         interface_name="swp51",
+                                         mac=None, ip=None)
+
+        inventory = tc.Inventory()
+        inventory.add_node(leaf01)
+        inventory.add_node(leaf02)
+        inventory.add_edge(tc.NetworkEdge(interface1, interface2))
+
+        output = []
+        output.append("leaf01")
+        output.append("code: cumuluscommunity/cumulus-vx")
+        output.append("memory: 768")
+        output.append("function: leaf")
+        output.append("mgmt_ip: 10.1.1.1/24")
+        output.append("\tswp51")
+        output.append("\t\tnetwork: network1")
+        output.append("\t\tmac: 00:38:39:00:00:00")
+
+        print leaf01
+        assert str(leaf01) == "\n".join(output)
+
+    def test_node_str_vbox_no_iface(self):
+        """Test printing a node when there are no interfaces
+        """
+        leaf01 = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768",
+            other_attributes={
+                "mgmt_ip": "10.1.1.1",
+            })
+
+        print leaf01
+
+        output = []
+        output.append("leaf01")
+        output.append("code: cumuluscommunity/cumulus-vx")
+        output.append("memory: 768")
+        output.append("function: leaf")
+        output.append("mgmt_ip: 10.1.1.1/24")
+
+        assert str(leaf01) == "\n".join(output)
+
+    def test_node_str_vbox_none_values(self):
+        """Test printing a node when values are set to None with virtualbox
+        """
+        leaf01 = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768")
+
+        leaf02 = tc.NetworkNode(
+            hostname="leaf02",
+            function="leaf",
+            memory="768")
+
+        interface1 = tc.NetworkInterface(hostname="leaf01",
+                                         interface_name="swp51",
+                                         mac="003839000000", ip=None)
+
+        interface2 = tc.NetworkInterface(hostname="leaf02",
+                                         interface_name="swp51",
+                                         mac=None, ip=None)
+
+        inventory = tc.Inventory()
+        inventory.add_node(leaf01)
+        inventory.add_node(leaf02)
+        inventory.add_edge(tc.NetworkEdge(interface1, interface2))
+
+        print leaf01
+        assert "mgmt_ip: None" in str(leaf01)
+
+        leaf01.vm_os = None
+        print leaf01
+        assert "code: None" in str(leaf01)
+
+        leaf01.memory = None
+        print leaf01
+        assert "memory: None" in str(leaf01)
+
+        leaf01.function = None
+        print leaf01
+        assert "function: None" in str(leaf01)
+
+        leaf01.interfaces["swp51"].network = None
+        print leaf01
+        assert "network: None" in str(leaf01)
+
+        leaf01.interfaces["swp51"].mac = None
+        print leaf01
+        assert "mac: None" in str(leaf01)
+
+    def test_node_str_libvirt_none_values(self):
+        """Test printing a node when values are set to None and the provider is libvirt
+        """
+        leaf01 = tc.NetworkNode(
+            hostname="leaf01",
+            function="leaf",
+            memory="768")
+
+        leaf02 = tc.NetworkNode(
+            hostname="leaf02",
+            function="leaf",
+            memory="768")
+
+        interface1 = tc.NetworkInterface(hostname="leaf01",
+                                         interface_name="swp51",
+                                         mac="003839000000", ip=None)
+
+        interface2 = tc.NetworkInterface(hostname="leaf02",
+                                         interface_name="swp51",
+                                         mac=None, ip=None)
+
+        inventory = tc.Inventory(provider="libvirt")
+        inventory.add_node(leaf01)
+        inventory.add_node(leaf02)
+        inventory.add_edge(tc.NetworkEdge(interface1, interface2))
+
+        print leaf01
+        assert "mgmt_ip: None" in str(leaf01)
+
+        leaf01.vm_os = None
+        print leaf01
+        assert "code: None" in str(leaf01)
+
+        leaf01.memory = None
+        print leaf01
+        assert "memory: None" in str(leaf01)
+
+        leaf01.function = None
+        print leaf01
+        assert "function: None" in str(leaf01)
+
+        leaf01.interfaces["swp51"].mac = None
+        print leaf01
+        assert "mac: None" in str(leaf01)
+
+        leaf01.libvirt_local_ip = None
+        print leaf01
+        assert "libvirt local tunnel IP: None" in str(leaf01)
+
+        leaf01.interfaces["swp51"].local_port = None
+        print leaf01
+        assert "local_port: None" in str(leaf01)
+
+        leaf01.interfaces["swp51"].libvirt_remote_ip = None
+        print leaf01
+        assert "remote_ip: None" in str(leaf01)
+
+        # If the remote port is None, we assume vbox provider
+        leaf01.interfaces["swp51"].remote_port = None
+        print leaf01
+        assert "network: None" in str(leaf01)

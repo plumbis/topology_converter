@@ -48,6 +48,8 @@ class NetworkNode(object):
         libvirt_local_ip - The local Tunnel IP for libvirt. Ignored for vbox providers
         memory - The amount of memory of the node
         mgmt_ip - The management (eth0) IP of the device. Used for management network DHCP
+        mgmt_mac - The mac address of the management interface, if it was created
+        mgmt_interface - The string name of the management interface, if it was created
         os_version - An OS version to use for the device
         other_attributes - Dict of attributes
         playbook - Ansible playbook to run as a Vagrant provisioner
@@ -142,12 +144,14 @@ class NetworkNode(object):
             self.other_attributes = other_attributes
 
         self.mgmt_ip = self.get_node_mgmt_ip()
+        self.mgmt_mac = None
+        self.mgmt_interface = None
 
         # If the user set the mgmt IP on the oob switch, start to populate the bridge attribute
         # If they didn't set the mgmt IP this will be handled in the creation of the oob network
         # If they don't create an oob network, then we don't care about any of this.
         if self.mgmt_ip is not None and self.function == "oob-switch":
-            self.other_attributes["bridge"] = {"ip": self.mgmt_ip}
+            self.mgmt_interface = "bridge"
 
         if "pxehost" in self.other_attributes:
             self.pxehost = self.other_attributes["pxehost"] == "True"
@@ -170,7 +174,7 @@ class NetworkNode(object):
                 config = defaults[function]["config"]
                 if VERBOSE:  # pragma: no cover
                     print "No config defined, using default of " + config
-                if not os.path.isfile(config):
+                if not os.path.isfile(config):  # pragma: no cover
                     print_warning("Node \"" + hostname +
                                   " config file " + config + " does not exist")
 
@@ -270,7 +274,7 @@ class NetworkNode(object):
         # If the management IP wasn't set on the OOB switch
         # populate the "bridge" attribute
         elif self.function == "oob-switch":
-            self.other_attributes["bridge"] = {}
+            self.mgmt_interface = "bridge"
 
         return None
 
@@ -338,6 +342,65 @@ class NetworkNode(object):
         self.interfaces[network_interface.interface_name] = network_interface
 
         return self
+
+    def __str__(self):
+        """
+        >> DEVICE: server03
+        code: yk0/ubuntu-xenial
+        memory: 512
+        function: host
+        mgmt_ip: 192.168.200.11
+        hostname: server03
+        tunnel_ip: 127.0.0.1
+        config: ./helper_scripts/extra_server_config.sh
+        LINK: eth0
+                remote_port: 10028
+                local_ip: 127.0.0.1
+                local_port: 11028
+                mac: 44:38:39:00:00:32
+                remote_device: oob-mgmt-switch
+                remote_interface: swp11
+                remote_ip: 127.0.0.1"""
+
+        # Try and guess what the provider is.
+        # If the remote port is set, it's libvirt
+        # Otherwise (no interfaces exist, or not set), it's the default virtualbox
+        provider = "virtualbox"
+        try:
+            if self.interfaces.itervalues().next().remote_port is not None:
+                provider = "libvirt"
+        except StopIteration:
+            provider = "virtualbox"
+
+        output = []
+        output.append(self.hostname)
+        output.append("code: " + str(self.vm_os))
+        output.append("memory: " + str(self.memory))
+        output.append("function: " + str(self.function))
+        output.append("mgmt_ip: " + str(self.mgmt_ip))
+        for interface in self.interfaces:
+            output.append("\t" + str(self.interfaces[interface].interface_name))
+            if provider == "libvirt":
+                output.append("\t\tlibvirt local tunnel IP: " + str(self.libvirt_local_ip))
+
+                output.append("\t\t" + "local_port: " +
+                              str(self.interfaces[interface].local_port))
+
+                output.append("\t\t" + "remote_ip: " +
+                              str(self.interfaces[interface].libvirt_remote_ip))
+
+                output.append("\t\t" + "remote_port: " +
+                              str(self.interfaces[interface].remote_port))
+            else:
+                output.append("\t\t" + "network: " + str(self.interfaces[interface].network))
+
+            if self.interfaces[interface].mac is not None:
+                mac = self.interfaces[interface].mac.replace("0x", "")
+                output.append("\t\t" + "mac: " + str(format_mac(mac.zfill(12))))
+            else:
+                output.append("\t\tmac: None")
+
+        return "\n".join(output)
 
 
 class NetworkInterface(object):
@@ -438,7 +501,7 @@ class NetworkInterface(object):
         if mac[:6] == "01005e":
             print_error(self.hostname + " MAC " + mac + " is a multicast MAC")
 
-        return mac
+        return hex(int(mac, 16))
 
 
 # pylint: disable=R0903
@@ -468,7 +531,7 @@ class Inventory(object):
 
     # pylint: disable=R0902
     # Too many instance attributes.
-    def __init__(self, provider="virtualbox", current_libvirt_port=1024, libvirt_gap=8000):
+    def __init__(self, provider="virtualbox", current_libvirt_port=1025, libvirt_gap=8000):
         self.parsed_topology = None
         self.provider = provider
         self.node_collection = dict()
@@ -486,6 +549,7 @@ class Inventory(object):
         # all of the elements should be of type ipaddress.ip_interface
         # ip_interface objects are in CIDR notation (10.1.1.1/24)
         # By default if no mask is provided it will create a /32, which isn't what we want.
+        self.create_mgmt_device = False
 
     def calculate_memory(self):
         """Look at all nodes in the Inventory
@@ -529,7 +593,7 @@ class Inventory(object):
 
             # Bridge attribute would have been set when the node was
             # created with a management IP.
-            node.other_attributes["bridge"].update({"mac": bridge_mac})
+            node.mgmt_mac = bridge_mac
 
             self.oob_switch = node
             if VERBOSE:  # pragma: no cover
@@ -654,6 +718,15 @@ class Inventory(object):
         left_node.add_interface(network_edge.left_side)
         right_node.add_interface(network_edge.right_side)
 
+        # If we are connecting to the oob switch, set the mgmt_interface value for that node
+        if left_node.hostname == "oob-mgmt-switch" or left_node.function == "oob-switch":
+            right_node.mgmt_interface = network_edge.right_side.interface_name
+            right_node.mgmt_mac = network_edge.right_side.mac
+
+        if right_node.hostname == "oob-mgmt-switch" or right_node.function == "oob-switch":
+            left_node.mgmt_interface = network_edge.left_side.interface_name
+            left_node.mgmt_mac = network_edge.left_side.mac
+
         return self
 
     def get_mac(self):
@@ -697,8 +770,13 @@ class Inventory(object):
         This will create an oob-mgmt-switch and
         oob-mgmt-server NetworkNode if they do not exist and will
         attach every inventory device's eth0 interface to
-        the oob-mgmt-server
+        the oob-mgmt-server.
+        If create_mgmt_device is True, the OOB server and switch will not be created
+        and nothing will be attached to them.
         """
+
+        self.create_mgmt_device = create_mgmt_device
+
         mgmt_switch_port_count = 1
 
         # Create an oob-server if the user didn't define one
@@ -721,6 +799,10 @@ class Inventory(object):
                     u'192.168.200.254/24')
                 self.mgmt_ips.add(self.oob_server.mgmt_ip)
 
+            if "eth1" in self.oob_server.interfaces and not create_mgmt_device:
+                print_error("eth1 detected on OOB Server while trying to auto-build mgmt network."
+                            + " Did you manually build the management network in the topology?")
+
         # Define the DHCP Pool settings based on the OOB IP
         # If the default IP is used, the pool will start at 192.168.200.10
         # And be of size 244. This is 256 in a /24, -2 for the network/broadcast
@@ -736,8 +818,19 @@ class Inventory(object):
             print_error("OOB Server subnet is too small for a valid DHCP pool."
                         + " Minimum subnet mask is /29")
 
+        # Everything is stored as ipaddress.IPInterface (in CIDR)
+        # the .network[current_lease] returns an IPAddress without a mask
+        oob_server_mask = "/" + \
+            str(self.oob_server.mgmt_ip)[
+                str(self.oob_server.mgmt_ip).find("/") + 1:]
+
         # Create an oob-switch if the user didn't define one
         if self.oob_switch is None:
+            if create_mgmt_device:
+                print_error("OOB Management Switch was not found in the topology."
+                            + " Management switch must be manually defined for "
+                            + "'create-management-device option")
+
             self.add_node(NetworkNode(
                 hostname="oob-mgmt-switch", function="oob-switch"))
 
@@ -750,11 +843,6 @@ class Inventory(object):
         # because we can't create an edge since it's not connected to anything.
         if self.oob_switch.mgmt_ip is None:
 
-            # Everything is stored as ipaddress.IPInterface (in CIDR)
-            # the .network[current_lease] returns an IPAddress without a mask
-            oob_server_mask = "/" + \
-                str(self.oob_server.mgmt_ip)[
-                    str(self.oob_server.mgmt_ip).find("/") + 1:]
             candidate_lease = str(
                 self.oob_server.mgmt_ip.network[current_lease])
             candidate_ip_object = ipaddress.ip_interface(
@@ -772,14 +860,23 @@ class Inventory(object):
             oob_switch_ip = candidate_ip_object
 
             self.oob_switch.mgmt_ip = oob_switch_ip
-            self.oob_switch.other_attributes["bridge"].update({"ip": oob_switch_ip})
             self.mgmt_ips.add(oob_switch_ip)
 
             if VERBOSE:  # pragma: no cover
                 print "OOB-Switch dynamically assigned IP " + self.oob_switch.mgmt_ip
 
+        else:
+            # Verify node_ip in subnet of oob-server ip
+            if not self.oob_server.mgmt_ip.network == self.oob_switch.mgmt_ip.network:
+                print_error("Management IP address on the OOB Switch"
+                            + " is not in the same subnet as the OOB server."
+                            + " OOB Server is configured for "
+                            + str(self.oob_server.mgmt_ip) + ". "
+                            + "OOB Switch is configured for "
+                            + str(self.oob_switch.mgmt_ip))
+
         # Connect the oob server and switch
-        # But skip the connection if we are only creating the management device
+        # if cmd is set, they should already have defined this connection
         if not create_mgmt_device:
             mgmt_port = "swp" + str(mgmt_switch_port_count)
             self.add_edge(NetworkEdge(NetworkInterface(hostname=self.oob_server.hostname,
@@ -787,6 +884,7 @@ class Inventory(object):
                                                        ip=str(self.oob_server.mgmt_ip)),
                                       NetworkInterface(hostname=self.oob_switch.hostname,
                                                        interface_name=mgmt_port)))
+            self.oob_server.mgmt_interface = "eth1"
 
             if VERBOSE:  # pragma: no cover
                 print "Management Link Added: "
@@ -810,16 +908,19 @@ class Inventory(object):
                                 + node_object.hostname + " is configured for "
                                 + str(node_object.mgmt_ip))
 
+                # If they set the CMD flag, assume they connected everything
+                if create_mgmt_device:
+                    continue
+
                 mgmt_port = "swp" + str(mgmt_switch_port_count)
-                if not create_mgmt_device:
-                    self.add_edge(NetworkEdge(
-                        NetworkInterface(hostname=hostname, interface_name="eth0",
-                                         ip=str(node_object.mgmt_ip)),
-                        NetworkInterface(hostname="oob-mgmt-switch",
-                                         interface_name=mgmt_port)))
+                self.add_edge(NetworkEdge(
+                    NetworkInterface(hostname=hostname, interface_name="eth0",
+                                     ip=str(node_object.mgmt_ip)),
+                    NetworkInterface(hostname="oob-mgmt-switch",
+                                     interface_name=mgmt_port)))
+                node_object.mgmt_interface = "eth0"
 
             else:
-
                 candidate_lease = str(
                     self.oob_server.mgmt_ip.network[current_lease])
                 candidate_ip_object = ipaddress.ip_interface(
@@ -838,12 +939,15 @@ class Inventory(object):
                         self.oob_server.mgmt_ip.network[current_lease])
                     candidate_ip_object = ipaddress.ip_interface(
                         unicode(candidate_lease + oob_server_mask))
-                if not create_mgmt_device:
+
+                if node_object.mgmt_interface is None:
                     self.add_edge(NetworkEdge(
                         NetworkInterface(hostname=hostname, interface_name="eth0",
                                          ip=str(candidate_ip_object)),
                         NetworkInterface(hostname="oob-mgmt-switch",
                                          interface_name="swp" + str(mgmt_switch_port_count))))
+                    node_object.mgmt_interface = "eth0"
+
                 node_object.mgmt_ip = candidate_ip_object
                 self.mgmt_ips.add(candidate_ip_object)
                 current_lease += 1
@@ -1330,19 +1434,10 @@ def render_dhcpd_hosts(inventory, topology_file, input_dir):
         if node.function == "oob-server":
             continue
 
-        if node.function == "oob-switch":
-            # Assign OOB IP to the oob-switch bridge interface
-            mac_address = format_mac(
-                node.other_attributes["bridge"]["mac"][2:])
-            node_dict[node.hostname] = {
-                "mac": mac_address, "ip": node.mgmt_ip}
-
-        else:
-            dhcp_interface = "eth0"
-            # The mac is stored as 0x...., send the substring without the 0x part to be formatted
-            mac_address = format_mac(node.interfaces[dhcp_interface].mac[2:])
-            node_dict[node.hostname] = {
-                "mac": mac_address, "ip": node.mgmt_ip}
+        # The mac is stored as 0x...., send the substring without the 0x part to be formatted
+        mac_address = format_mac(node.mgmt_mac[2:].zfill(12))
+        node_dict[node.hostname] = {
+            "mac": mac_address, "ip": node.mgmt_ip}
 
         if "ztp" in node.other_attributes:
             node_dict[node.hostname]["ztp"] = node.other_attributes["ztp"]
@@ -1585,12 +1680,13 @@ def render_vagrantfile(inventory, input_dir, cli):  # pylint: disable=R0912
     return template.render(jinja_variables)
 
 
-def write_file(location, contents):
+def write_file(location, contents):  # pragma: no cover
     """Writes contents to a file
     Keyword Arguments
     location - the path of the file to write
     contents - the string contents to write to the file
     """
+    # No test cases. Needs to be mocked.
     try:
         with open(location, 'w') as output_file:
             output_file.write(contents)
@@ -1598,7 +1694,7 @@ def write_file(location, contents):
         print_error("ERROR: Could not write file " + location)
 
 
-def print_warning(warning_string):
+def print_warning(warning_string):  # pragma: no cover
     """Format and print warning messages
     """
     warning_format = "\033[93m"
@@ -1607,7 +1703,7 @@ def print_warning(warning_string):
     print warning_format + bold_format + "    WARNING: " + warning_string + endc
 
 
-def print_error(error_string):
+def print_error(error_string):  # pragma: no cover
     """Format and print error messages.
     Also exit the program
     """
@@ -1618,7 +1714,7 @@ def print_error(error_string):
     exit(1)
 
 
-def print_header(output_string):
+def print_header(output_string):  # pragma: no cover
     """Format and print header messages
     """
     header_format = "\033[95m"
@@ -1626,21 +1722,21 @@ def print_header(output_string):
     print header_format + output_string
 
 
-def print_blue(output_string):
+def print_blue(output_string):  # pragma: no cover
     """Print a string in blue
     """
     blue_format = "\033[94m"
     print blue_format + output_string
 
 
-def print_green(output_string):
+def print_green(output_string):  # pragma: no cover
     """Print a string in green
     """
     green_format = "\033[92m"
     print green_format + output_string
 
 
-def print_underline(output_string):
+def print_underline(output_string):  # pragma: no cover
     """Print a string with an underline
     """
     underline_format = "\033[4m"
@@ -1678,7 +1774,7 @@ def main():
         inventory.build_mgmt_network(create_mgmt_device=True)
 
     if cli_args.memory:
-        print str(inventory.calculate_memory()) + " mb"
+        print str(inventory.calculate_memory()) + " MB"
         exit(0)
 
     if cli_args.create_mgmt_network or cli_args.create_mgmt_device:
@@ -1718,6 +1814,23 @@ def main():
         write_file("./Vagrantfile",
                    render_vagrantfile(inventory, "./templates/Vagrantfile/", cli_args))
 
+    for node in inventory.node_collection:
+        if node == "NOTHING":
+            continue
+        print inventory.get_node_by_name(node)
+
+    print ""
+    print_green("############")
+    print_green("SUCCESS: Vagrantfile has been generated!")
+    print_green("############")
+    print ""
+    print "\t" + str(len(inventory.node_collection)) + " under simulation"
+    for node in inventory.node_collection:
+        if node == "NOTHING":
+            continue
+        print "\t\t" + node
+    print ""
+    print "\t Requiring at least " + str(inventory.calculate_memory()) + " MB of memory"
     exit(0)
 
 

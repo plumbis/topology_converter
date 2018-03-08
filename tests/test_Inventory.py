@@ -1224,3 +1224,11 @@ class TestNetworkInterface(object):  # pylint: disable=W0232, R0904
                                                other_attributes={"mgmt_ip": "192.168.1.1/24"}))
 
         self.inventory.build_mgmt_network()
+
+    @raises(SystemExit)
+    def test_add_parsed_topology_oob_only(self):
+        """Test adding a topology when a node has an interface connected but not defined
+        """
+        parser = tc.ParseGraphvizTopology()
+        parsed_topology = parser.parse_topology("./tests/dot_files/host_not_defined.dot")
+        self.inventory.add_parsed_topology(parsed_topology)

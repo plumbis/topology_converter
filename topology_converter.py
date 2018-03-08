@@ -646,6 +646,10 @@ class Inventory(object):
 
         for side in [network_edge.left_side, network_edge.right_side]:
 
+            if self.get_node_by_name(side.hostname) is None:
+                print_error("Host " + side.hostname + " has a connection "
+                            + "but was never defined as a node")
+
             # Check if the interface has already been used.
             # Multiaccess interfaces are not supported.
             if self.get_node_by_name(side.hostname).get_interface(side.interface_name) is not None:

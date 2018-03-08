@@ -84,7 +84,7 @@ class NetworkNode(object):
                 "config": "./helper_scripts/auto_mgmt_network/OOB_Server_Config_auto_mgmt.sh"
             },
             "oob-switch": {
-                "os": "cumuluscommunity/cumulus-vx",
+                "os": "CumulusCommunity/cumulus-vx",
                 "memory": "512",
                 "config": "./helper_scripts/oob_switch_config.sh"
             },

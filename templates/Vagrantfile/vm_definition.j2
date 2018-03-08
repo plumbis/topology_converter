@@ -33,7 +33,6 @@
     {% endif %}
 
     device.vm.provider "{{ cli_args["provider"] }}" do |v|
-        v.name = "#{simid}_{{ node["hostname"] }}"
         {%- if node["memory"] is defined %}      
         v.memory = {{ node["memory"] }}
         {%- endif %}
@@ -49,7 +48,7 @@
     end
 
 {%- if not cli_args["synced_folder"]  %}
-    #   see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
+    # see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
     device.vm.synced_folder ".", "/vagrant", disabled: true
 {%- endif %}
 

@@ -167,10 +167,6 @@ echo "Copying Key into /var/www/html..."
 cp /home/cumulus/.ssh/id_rsa.pub /var/www/html/authorized_keys
 chmod 777 -R /var/www/html/*
 
-echo "Copying SSH Key into /var/www/html..."
-cp /home/cumulus/.ssh/id_rsa.pub /var/www/html/authorized_keys
-chmod 777 -R /var/www/html/*
-
 echo " ###Making cumulus passwordless sudo ###"
 echo "cumulus ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/10_cumulus
 

@@ -140,7 +140,7 @@ class Test_NetworkNode(object): # pylint: disable=R0904
         """
         node = tc.NetworkNode("leaf01", "oob-switch")
 
-        assert node.vm_os == "cumuluscommunity/cumulus-vx"
+        assert node.vm_os == "CumulusCommunity/cumulus-vx"
         assert node.memory == "512"
         assert node.config == "./helper_scripts/oob_switch_config.sh"
 

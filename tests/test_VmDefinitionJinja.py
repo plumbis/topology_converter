@@ -189,7 +189,7 @@ class TestVmDefinition(object):  # pylint: disable=W0612,R0903
         result = self.template.render(jinja_variables)
 
         print result
-        print repr(result)
         print ""
-        print repr(open(expected_result_file).read())
+        print open(expected_result_file).read()
+
         assert result == open(expected_result_file).read()

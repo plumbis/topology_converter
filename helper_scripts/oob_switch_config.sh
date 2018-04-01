@@ -28,8 +28,6 @@ EOT
 cp /home/vagrant/bridge-untagged /etc/network/interfaces.d/bridge-untagged
 
 
-
 echo "#################################"
 echo "   Finished "
 echo "#################################"
-

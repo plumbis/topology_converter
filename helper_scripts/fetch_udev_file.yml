@@ -73,4 +73,3 @@
 
     - name: Show Interfaces
       debug: msg="{{ ip_output.stdout.split('\n') }}"
-

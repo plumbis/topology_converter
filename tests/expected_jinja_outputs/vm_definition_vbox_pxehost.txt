@@ -6,10 +6,10 @@
     device.ssh.insert_key = false
     device.vm.box = "yk0/ubuntu-xenial"
 
-    device.vm.provider "virtualbox" do |v|
-        v.name = "#{simid}_pxehost"      
+    device.vm.provider "virtualbox" do |v|      
         v.memory = 512
         
+        v.name = "#{simid}_pxehost"
         v.customize ["modifyvm", :id, '--audiocontroller', 'AC97', '--audio', 'Null']
         v.customize ["modifyvm", :id, '--nicpromisc2', 'allow-all']
         v.customize ["modifyvm", :id, '--nictype1', 'virtio']
@@ -25,7 +25,7 @@
       vbox.customize ["modifyvm", :id, "--nicbootprio2", "1"]
 
     end
-    #   see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
+    # see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
     device.vm.synced_folder ".", "/vagrant", disabled: true
 
     # NETWORK INTERFACES

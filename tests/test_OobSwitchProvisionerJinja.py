@@ -30,7 +30,7 @@ class TestOobSwitchProvisionerJinja(object):  # pylint: disable=W0612,R0903
         expected_result.append(" ")
         expected_result.append("    # Transfer Bridge File")
         expected_result.append("    device.vm.provision \"file\", source: \"./helper_scripts/auto_mgmt_network/bridge-untagged\", destination: \"~/bridge-untagged\"")  # pylint: disable=C0301
-        expected_result.append("    device.vm.provision :shell , path: \"./helper_scripts/OOB_switch_config.sh\"")  # pylint: disable=C0301
+        expected_result.append("    device.vm.provision :shell , path: \"./helper_scripts/oob_switch_config.sh\"")  # pylint: disable=C0301
 
         print repr(result)
         print ""

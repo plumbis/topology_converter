@@ -6,8 +6,7 @@
     device.ssh.insert_key = false
     # NO BOX USED FOR PXE DEVICE WITH LIBVIRT
 
-    device.vm.provider "libvirt" do |v|
-        v.name = "#{simid}_pxehost"      
+    device.vm.provider "libvirt" do |v|      
         v.memory = 512    
         v.storage :file, :size => '100G', :type => 'qcow2', :bus => 'sata', :device => 'sda'
         v.boot 'hd'
@@ -15,7 +14,7 @@
         v.nic_model_type = 'e1000'
 
     end
-    #   see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
+    # see note here: https://github.com/pradels/vagrant-libvirt#synced-folders
     device.vm.synced_folder ".", "/vagrant", disabled: true
 
     # NETWORK INTERFACES

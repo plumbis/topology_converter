@@ -70,6 +70,7 @@ class TestCustomizeVbox(object):  # pylint: disable=W0612,R0903
 
         expected_result = []
         expected_result.append("")
+        expected_result.append("        v.name = \"#{simid}_leaf01\"")
         expected_result.append("        v.customize [\"modifyvm\", :id, '--audiocontroller', 'AC97', '--audio', 'Null']")  # pylint: disable=C0301
         expected_result.append("        v.customize [\"modifyvm\", :id, '--nicpromisc2', 'allow-all']")  # pylint: disable=C0301
         expected_result.append("        v.customize [\"modifyvm\", :id, '--nicpromisc3', 'allow-all']")  # pylint: disable=C0301
@@ -123,6 +124,7 @@ class TestCustomizeVbox(object):  # pylint: disable=W0612,R0903
         result = self.template.render(jinja_variables)
         expected_result = []
         expected_result.append("")
+        expected_result.append("        v.name = \"#{simid}_host01\"")
         expected_result.append("        v.customize [\"modifyvm\", :id, '--audiocontroller', 'AC97', '--audio', 'Null']")  # pylint: disable=C0301
         expected_result.append("        v.customize [\"modifyvm\", :id, '--nicpromisc2', 'allow-all']")  # pylint: disable=C0301
         expected_result.append("        v.customize [\"modifyvm\", :id, '--nicpromisc3', 'allow-all']")  # pylint: disable=C0301

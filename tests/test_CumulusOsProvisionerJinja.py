@@ -29,9 +29,11 @@ class TestCumulusOSProvisionerJinja(object):  # pylint: disable=W0612,R0903
         result = tc.render_vagrantfile(inventory, "./templates/", self.cli)
         expected_result = []
         expected_result.append("")
-        expected_result.append("    #Copy over Topology.dot File")
+        expected_result.append("    # Copy over Topology.dot File")
         expected_result.append("    device.vm.provision \"file\", source: \"./tests/dot_files/reference_topology.dot\", destination: \"~/topology.dot\"")  # pylint: disable=C0301
         expected_result.append("    device.vm.provision :shell, privileged: false, inline: \"sudo mv ~/topology.dot /etc/ptm.d/topology.dot\"") # pylint: disable=C0301
 
-        print result
+        print repr(result)
+        print ""
+        print repr("\n".join(expected_result))
         assert "\n".join(expected_result) == result

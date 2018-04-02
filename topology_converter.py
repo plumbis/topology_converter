@@ -1758,7 +1758,7 @@ def main():
     cli_args = cli.parse_args()
     check_files(cli_args, vagrant_template)
 
-    if cli_args.verbose:
+    if cli_args.verbose:  # pragma: no cover
         VERBOSE = True
 
     print_header("\n######################################")
@@ -1835,8 +1835,8 @@ def main():
         print "\t\t" + node
     print ""
     print "\t Requiring at least " + str(inventory.calculate_memory()) + " MB of memory"
-    exit(0)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
+    exit(0)

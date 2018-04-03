@@ -4,6 +4,8 @@
 # pylint: disable=C0103
 import sys
 import difflib
+import os
+import shutil
 from mock import patch
 import topology_converter as tc
 
@@ -118,3 +120,16 @@ class TestMain(object):  # pylint: disable=W0612,R0903
                 print "\n".join(diff_output)
 
                 assert not helper_diff_output
+
+    def test_create_mgmt_network_no_auto_dir(self): # pylint: disable=R0201
+        """Test that creating a management network when the helper_scripts/auto_mgmt_network
+        directory does not exist creates the directory and does not error.
+        """
+
+        testargs = ["reference_topology.py", "-c", "./tests/dot_files/simple.dot"]
+        if os.path.exists("./helper_scripts/auto_mgmt_network/"):
+            shutil.rmtree("./helper_scripts/auto_mgmt_network/")
+
+        with patch.object(sys, 'argv', testargs):
+
+            tc.main()

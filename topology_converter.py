@@ -1747,7 +1747,7 @@ def print_underline(output_string):  # pragma: no cover
     print underline_format + output_string
 
 
-def main():
+def main():  # pylint: disable=R0915
     """Main point of entry to parse a topology file,
     build an inventory and product a Vagrantfile
     """
@@ -1782,6 +1782,8 @@ def main():
         exit(0)
 
     if cli_args.create_mgmt_network or cli_args.create_mgmt_device:
+        if not os.path.exists("./helper_scripts/auto_mgmt_network/"):
+            os.makedirs("./helper_scripts/auto_mgmt_network/")
         write_file("./helper_scripts/auto_mgmt_network/ansible_hostfile",
                    render_ansible_hostfile(inventory, cli_args.topology_file,
                                            "./templates/auto_mgmt_network/"))

@@ -11,4 +11,3 @@ venv/
 .vscode/
 .noseids
 *.code-workspace
-helper_scripts/auto_mgmt_network/*
